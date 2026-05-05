@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<executable>
+  <category>Chest Imaging Platform.Toolkit.Segmentation</category>
+  <title>Generate Simple Lung Mask</title>
+  <description> Generate Simple Lung Mask</description>
+  <version>0.0.1</version>
+  <documentation-url>https://chestimagingplatform.org/segmentation</documentation-url>
+  <license>Slicer</license>
+  <contributor> Applied Chest Imaging Laboratory, Brigham and Women's hospital</contributor>
+  <acknowledgements>This work is funded by the National Heart, Lung, And Blood Institute of the National \
+    Institutes of Health under Award Number R01HL116931. The content is solely the responsibility of the author \
+    and does not necessarily represent the official views of the National Institutes of Health.
+  </acknowledgements>
+  
+  <parameters>
+    <label>IO</label>
+    <description>Input/output parameters</description>
+    <image>
+      <name>inputVolume</name>
+      <label>Input Volume</label>
+      <channel>input</channel>
+      <flag>i</flag>
+      <longflag>input</longflag>
+      <description>Input Chest CT volume</description>
+    </image>
+    <image type="label">
+      <name>outputVolume</name>
+      <label>Output Volume</label>
+      <channel>output</channel>
+      <flag>o</flag>
+      <longflag>output</longflag>
+      <description>Output Lung Mask</description>
+    </image>
+  </parameters>
+  
+  <parameters>
+    <label>Parameters </label>
+    <description>Parameters</description>
+  
+    <boolean>
+      <name>lowDose</name>
+      <label>Low Dose (noisy)</label>
+      <description> Enable if this is a low dose-noisy scan</description>
+      <flag>l</flag>
+      <longflag>lowDose</longflag>
+      <default>true</default>
+    </boolean>
+    
+  </parameters>
+    
+</executable>

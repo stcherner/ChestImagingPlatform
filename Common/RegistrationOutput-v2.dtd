@@ -1,0 +1,8 @@
+<!ELEMENT Registration+ (imageType ,SimilarityValue,transformation, transformation_index , sourceID, destID)>
+<ATTLIST Registration id ID #REQUIRED>  
+<!ELEMENT imageType (#PCDATA) #REQUIRED>
+<!ELEMENT SimilarityValue (#PCDATA) #REQUIRED>
+<!ELEMENT transformation xlink:href CDATA #REQUIRED>
+<!ELEMENT transformation_index  #REQUIRED>
+<!ELEMENT sourceID (#PCDATA) #REQUIRED>
+<!ELEMENT destID (#PCDATA) #REQUIRED>

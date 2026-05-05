@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<executable>
+  <category>Chest Imaging Platform.Toolkit.Segmentation</category>
+  <title>GeneratePartialLungLabelMap</title>
+  <description><![CDATA[Segment a CT image into lung regions with an approximate aiway segmentation.]]>
+  </description>
+  <version>0.0.1</version>
+  <documentation-url>https://chestimagingplatform.org/segmentation</documentation-url>
+  <license>Slicer</license>
+  <contributor> Applied Chest Imaging Laboratory, Brigham and Women's Hospital</contributor>
+  <acknowledgements>This work is funded by the National Heart, Lung, And Blood Institute of the National \
+Institutes of Health under Award Number R01HL116931. The content is solely the responsibility of the authors \
+and does not necessarily represent the official views of the National Institutes of Health.
+  </acknowledgements>
+
+  <parameters>
+    <label>IO</label>
+    <description>Input/output parameters</description>
+    <image>
+      <name>ctFileName</name>
+      <label>CT file name</label>
+      <channel>input</channel>
+      <longflag>ict</longflag>
+      <description><![CDATA[CT image file name]]></description>
+      <default>NA</default>
+    </image>
+    <image type="label">
+      <name>outputLungMaskFileName</name>
+      <label>Output segmentation file name</label>
+      <channel>output</channel>
+      <flag>o</flag>
+      <longflag>olm</longflag>
+      <description><![CDATA[Output segmentation file name]]></description>
+      <default>NA</default>
+    </image>  
+
+    <image type="label">
+      <name>helperMaskFileName</name>
+      <label>Helper mask file name</label>
+      <channel>input</channel>
+      <longflag>hm</longflag>
+      <description><![CDATA[Help mask file name. The helper mask is a crude lung segmentation that \
+can be supplied to assist the segmentation for difficult cases.]]></description>
+      <default>NA</default>
+    </image>  
+  </parameters>
+
+  <parameters advanced="true">
+  <label>Parameters</label>
+  <description>Parameters</description>
+    <integer>
+      <name>lowerClipValue</name>
+      <longflag>lcv</longflag>
+      <description>Lower clip value applied to input image before segmentation. \
+Everything below the clip value will be assigned the replacement value.</description>
+      <label>Lower clip value</label>
+      <default>-1024</default>
+    </integer>
+
+    <integer>
+      <name>lowerReplacementValue</name>
+      <longflag>lrv</longflag>
+      <description>Lower replacement value applied to input image before segmentation. \
+Everything below the clip value will be assigned the replacement value.</description>
+      <label>Lower replacement value</label>
+      <default>-1024</default>
+    </integer>
+
+    <integer>
+      <name>upperClipValue</name>
+      <longflag>ucv</longflag>
+      <description>Upper clip value applied to input image before segmentation. \
+Everything above the clip value will be assigned the replacement value.</description>
+      <label>Upper clip value</label>
+      <default>1024</default>
+    </integer>
+
+    <integer>
+      <name>upperReplacementValue</name>
+      <longflag>urv</longflag>
+      <description>Upper replacement value applied to input image before segmentation. \
+Everything above the clip value will be assigned the replacement value.</description>
+      <label>Upper replacement value</label>
+      <default>1024</default>
+    </integer>
+
+    <integer>
+      <name>lungSplitRadius</name>
+      <longflag>lsr</longflag>
+      <description>Radius used to split the left and right lungs. Large values lead \
+to more aggressive splitting, and may slightly degrade the segmentation quality around \
+the splitting region.</description>
+      <label>Lung split radius</label>
+      <default>1</default>
+    </integer>
+    
+    <integer>
+      <name>airwayMinThreshold</name>
+      <longflag>al</longflag>
+      <description>Lower intensity thresold for airways</description>
+      <label>Airway lower intensity threshold</label>
+      <default>-1024</default>
+    </integer>
+
+    <integer>
+      <name>airwayMaxThreshold</name>
+      <longflag>au</longflag>
+      <description>Upper intensity thresold for airways</description>
+      <label>Airway upper intensity threshold</label>
+      <default>-800</default>
+    </integer>
+    
+    <float>
+      <name>maxAirwayVolume</name>
+      <longflag>av</longflag>
+      <description>The maximum total volume of the airway tree segmentation in mm^3</description>
+      <label>Maximum airway volume</label>
+      <default>30000</default>
+    </float>
+
+    <boolean>
+      <name>feetFirst</name>
+      <longflag>ff</longflag>
+      <description>Indicates if scan is feet first.</description>
+      <label>Feet first</label>
+    </boolean>
+
+  </parameters>
+</executable>

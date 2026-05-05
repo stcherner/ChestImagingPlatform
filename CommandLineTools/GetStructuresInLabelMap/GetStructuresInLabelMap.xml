@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<executable>
+  <category>Chest Imaging Platform.Toolkit.Utils</category>
+  <title>GetStructuresInLabelMap</title>
+    <description><![CDATA[This program reads in a label map image and writes to the command line a list of the chest-region chest-type pairs that are present.]]></description>
+  <version>0.0.1</version>
+  <documentation-url>https://chestimagingplatform.org/utils</documentation-url>
+  <license>Slicer</license>
+  <contributor> Applied Chest Imaging Laboratory, Brigham and women's hospital</contributor>
+  <acknowledgements>This work is funded by the National Heart, Lung, And Blood Institute of the National \
+        Institutes of Health under Award Number R01HL116931. The content is solely the responsibility of the authors \
+        and does not necessarily represent the official views of the National Institutes of Health.
+  </acknowledgements>
+  <parameters>
+
+     <image type="label">
+      <name>labelMapFileName</name>
+      <label>label Map File Name</label>
+      <channel>input</channel>
+      <flag>i</flag>
+      <longflag>--input</longflag>
+      <description><![CDATA[Input label map file name.]]></description>
+      <default>NA</default>
+    </image>
+
+ 
+
+  </parameters>
+</executable>

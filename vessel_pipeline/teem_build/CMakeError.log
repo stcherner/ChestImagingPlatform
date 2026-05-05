@@ -1,0 +1,18 @@
+Value of the 22nd bit of a 32-bit quiet-NaN is 1TestQnanhibit.c produced following output:
+Change Dir: '/mnt/c/Users/tcher/Desktop/ChestImagingPlatform-master/ChestImagingPlatform-master/vessel_pipeline/teem_build/CMakeFiles/CMakeTmp'
+
+Run Build Command(s): /mnt/c/Users/tcher/Desktop/ChestImagingPlatform-master/ChestImagingPlatform-master/vessel_pipeline/venv/lib/python3.12/site-packages/cmake/data/bin/cmake -E env VERBOSE=1 /usr/bin/gmake -f Makefile cmTC_cb91f/fast
+/usr/bin/gmake  -f CMakeFiles/cmTC_cb91f.dir/build.make CMakeFiles/cmTC_cb91f.dir/build
+gmake[1]: Entering directory '/mnt/c/Users/tcher/Desktop/ChestImagingPlatform-master/ChestImagingPlatform-master/vessel_pipeline/teem_build/CMakeFiles/CMakeTmp'
+gmake[1]: Warning: File 'CMakeFiles/cmTC_cb91f.dir/progress.make' has modification time 0.077 s in the future
+Building C object CMakeFiles/cmTC_cb91f.dir/TestQnanhibit.c.o
+/usr/bin/cc    -o CMakeFiles/cmTC_cb91f.dir/TestQnanhibit.c.o -c /mnt/c/Users/tcher/Desktop/ChestImagingPlatform-master/ChestImagingPlatform-master/vessel_pipeline/teem_src/CMake/TestQnanhibit.c
+Linking C executable cmTC_cb91f
+/mnt/c/Users/tcher/Desktop/ChestImagingPlatform-master/ChestImagingPlatform-master/vessel_pipeline/venv/lib/python3.12/site-packages/cmake/data/bin/cmake -E cmake_link_script CMakeFiles/cmTC_cb91f.dir/link.txt --verbose=1
+/usr/bin/cc -rdynamic CMakeFiles/cmTC_cb91f.dir/TestQnanhibit.c.o -o cmTC_cb91f
+gmake[1]: warning:  Clock skew detected.  Your build may be incomplete.
+gmake[1]: Leaving directory '/mnt/c/Users/tcher/Desktop/ChestImagingPlatform-master/ChestImagingPlatform-master/vessel_pipeline/teem_build/CMakeFiles/CMakeTmp'
+
+-DTEEM_QNANHIBIT=1
+
+

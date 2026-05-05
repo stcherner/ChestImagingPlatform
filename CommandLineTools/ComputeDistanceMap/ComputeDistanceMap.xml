@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<executable>
+    <category>Chest Imaging Platform.Toolkit.Processing</category>
+    <title>ComputeDistanceMap</title>
+    <description><![CDATA[This program computes a distance map from an \
+input binary map. A donwsampling can be applied prior to the distance map computation \
+to improve performance. The resulting \
+distance map will by upsampled by the same amount before writing.]]>
+    </description>
+    <version>0.0.1</version>
+     <documentation-url>https://chestimagingplatform.org/processing</documentation-url>
+    <license>Slicer</license>
+    <contributor> Applied Chest Imaging Laboratory, Brigham and Women's hospital</contributor>
+    <acknowledgements>This work is funded by the National Heart, Lung, And Blood Institute of the National \
+Institutes of Health under Award Number R01HL116931. The content is solely the responsibility of the authors \
+and does not necessarily represent the official views of the National Institutes of Health.
+    </acknowledgements>
+    
+    <parameters>
+        <label>IO</label>
+        <description>Input/output parameters</description>
+        <image>
+            <name>labelMapFileName</name>
+            <label>Label map file name</label>
+            <channel>input</channel>
+            <flag>l</flag>
+            <longflag>labelMap</longflag>
+            <default>NA</default>
+            <description><![CDATA[Input label map file name]]></description>
+        </image>
+        <image>
+            <name>distanceMapFileName</name>
+            <label>Distance map file name</label>
+            <channel>output</channel>
+            <flag>d</flag>
+            <longflag>distanceMap</longflag>
+            <default>NA</default>
+            <description><![CDATA[Output distance map file name]]></description>
+        </image>
+     </parameters>
+    
+     <parameters>
+       <label>Parameters</label>
+       <description>Optional parameters</description>
+      
+      <string-enumeration>
+        <name>method</name>
+        <flag>m</flag>
+        <longflag>method</longflag>
+        <element>Maurer</element>
+        <element>Danielsson</element>
+        <default>Maurer</default>
+        <description><![CDATA[Method. Either Maurer or Danielsson]]></description>
+      </string-enumeration>
+
+        <integer>
+            <name>downsampleFactor</name>
+            <flag>s</flag>
+            <longflag>downsample</longflag>
+            <description>Downsample factor. The input label map will be \
+downsampled by the specified amount before the distance map is computed. The resulting \
+distance map will then be scaled up by the same amount before writing.</description>
+            <label>Downsample Factor</label>
+            <default>1</default>
+        </integer>
+        
+        <boolean>
+            <name>interiorIsPositive</name>
+            <label>Interior is positive</label>
+            <flag>p</flag>
+            <longflag>positive</longflag>
+            <description>Set this flag to indicate that the interior \
+of the structure of interest should be assigned positive distance values.</description>
+            <default>false</default>
+        </boolean>
+        
+        <boolean>
+          <name>outputSquaredDistance</name>
+          <label>Squared distance</label>
+          <longflag>squaredDistance</longflag>
+          <description>Set this flag to output the squared distance.</description>
+          <default>false</default>
+        </boolean>
+        
+    </parameters>
+     
+     
+</executable>

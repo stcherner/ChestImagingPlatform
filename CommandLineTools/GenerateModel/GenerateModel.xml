@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<executable>
+  <category>Chest Imaging Platform.Toolkit.Utils</category>
+  <title>GenerateModel</title>
+    <description><![CDATA[This program generates a 3D model given an input label map mask using the discrete marching cubes algorithm.]]></description>
+  <version>0.0.1</version>
+  <documentation-url>https://chestimagingplatform.org/utils</documentation-url>
+  <license>Slicer</license>
+  <contributor> Applied Chest Imaging Laboratory, Brigham and Women's Hospital</contributor>
+  <acknowledgements>This work is funded by the National Heart, Lung, And Blood Institute of the National \
+Institutes of Health under Award Number R01HL116931. The content is solely the responsibility of the authors \
+and does not necessarily represent the official views of the National Institutes of Health.
+    </acknowledgements>
+
+  <parameters>
+    <label>IO</label>
+    <description>Input/output parameters</description>
+
+    <image type="label">
+      <name>maskFileName</name>
+      <label>mask File Name</label>
+      <channel>input</channel>
+      <flag>i</flag>
+      <longflag>--in</longflag>
+        <description><![CDATA[Input mask file name]]></description>
+      <default>NA</default>
+    </image>
+
+    <geometry type="model">
+      <name>outputModelFileName</name>
+      <label>output Model FileName</label>
+      <channel>output</channel>
+      <flag>o</flag>
+      <longflag>--out</longflag>
+      <description><![CDATA[Output model file name]]></description>
+      <default>NA</default>
+    </geometry>
+  </parameters>
+  
+  <parameters>
+    <label>Parameters</label>
+    <description>Parameters</description>
+    
+    <integer>
+      <name>smootherIterationsTemp</name>
+      <label>smoother Iterations</label>
+      <channel>input</channel>
+      <flag>s</flag>
+      <longflag>--smooth</longflag>
+      <description><![CDATA[Number of smoothing iterations.]]></description>
+      <default>2</default>
+    </integer>   
+
+    <integer>
+        <name>foregroundLabel</name>
+        <label>Foreground Label</label>
+        <channel>input</channel>
+        <flag>l</flag>
+        <longflag>--label</longflag>
+        <description><![CDATA[Foreground label in the label map to be used for generating the model.]]></description>
+        <default>1</default>
+    </integer>
+      
+    <float>
+      <name>decimatorTargetReduction</name>
+      <label>decimator Target Reduction</label>
+      <channel>input</channel>
+      <flag>r</flag>
+      <longflag>--reduc</longflag>
+      <description><![CDATA[Target reduction fraction for decimation]]></description>
+      <default>0.9</default>
+    </float>
+  </parameters>
+  
+</executable>
