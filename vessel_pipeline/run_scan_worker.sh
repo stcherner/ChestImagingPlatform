@@ -201,6 +201,7 @@ for RUN_NUM in $(seq 1 "$RUNS"); do
 
     if [ $PHENO_EXIT -ne 0 ]; then
         echo "  phenotype CLI failed (exit $PHENO_EXIT) — trying API fallback"
+        set +e
         PHENO_IN="$PARTICLE_VTK" PHENO_CSV="$CSV_OUT" PHENO_PNG="$PNG_OUT" \
         PHENO_CID="$CASE_ID" \
         PYTHONPATH="$HOME/cip_build/CIP-build" python - <<'PYEOF'
@@ -222,6 +223,7 @@ if fig is not None:
 print('phenotype API fallback OK: ' + str(len(df)) + ' rows')
 PYEOF
         PHENO_EXIT=$?
+        set -e
     fi
 
     [ $PHENO_EXIT -ne 0 ] && \
@@ -256,11 +258,15 @@ PYEOF
     fi
 
     # 7. Summary line
+    set +e
     PARTICLE_COUNT=$(PARTICLE_VTK_PATH="$PARTICLE_VTK" python -c "
 import os, vtk
 r = vtk.vtkPolyDataReader()
 r.SetFileName(os.environ['PARTICLE_VTK_PATH']); r.Update()
 print(r.GetOutput().GetNumberOfPoints())")
+    PC_EXIT=$?
+    set -e
+    [ $PC_EXIT -ne 0 ] && PARTICLE_COUNT="unknown"
     ELAPSED=$(( $(date +%s) - RUN_START ))
     echo "DONE $CASE_ID run${RUN_NUM} $PARTICLE_COUNT ${ELAPSED}s"
 
