@@ -69,11 +69,22 @@ fi
 
 # ── CASE_ID and directory setup ───────────────────────────────────────────────
 CASE_ID=$(basename "$NII_PATH" .nii.gz | tr ' ()' '_-_' | tr -d "'\"")
-CASEDIR="$OUTPUT_DIR/$CASE_ID"
+# OUTPUT_DIR already includes CASE_ID (set by orchestrator as $OUTPUT_BASE/$CID
+# or by a standalone caller as $BASE/$CASE_ID). Do NOT append CASE_ID again.
+CASEDIR="$OUTPUT_DIR"
 TMPDIR_SHARED="$CASEDIR/tmp"
 mkdir -p "$CASEDIR" "$TMPDIR_SHARED"
 
 echo "[$(date '+%H:%M:%S')] START $CASE_ID (runs=$RUNS cores=$CORES region=$REGION cleanup=$CLEANUP)"
+
+cleanup_run_probe_files() {
+    rm -f "$TMPDIR_SHARED"/pass*.nrrd \
+          "$TMPDIR_SHARED"/heval*.nrrd \
+          "$TMPDIR_SHARED"/hevec*.nrrd \
+          "$TMPDIR_SHARED"/hmode.nrrd \
+          "$TMPDIR_SHARED"/hess.nrrd \
+          "$TMPDIR_SHARED"/val.nrrd
+}
 
 # ── Preprocessing (idempotent, atomic writes) ─────────────────────────────────
 preprocess() {
@@ -137,6 +148,7 @@ for RUN_NUM in $(seq 1 "$RUNS"); do
     AVAIL_KB=$(df --output=avail "$CASEDIR" | tail -1 | tr -d ' ')
     if [ "$AVAIL_KB" -lt 6291456 ]; then
         echo "SKIP $CASE_ID run$RUN_NUM — $(( AVAIL_KB / 1048576 )) GiB free, need 6 GiB"
+        cleanup_run_probe_files
         RUN_FAILED=1; continue
     fi
 
@@ -160,13 +172,14 @@ for RUN_NUM in $(seq 1 "$RUNS"); do
     set -e
 
     if   [ $EXIT_CODE -eq 124 ]; then
-        echo "TIMEOUT $CASE_ID run$RUN_NUM — exceeded 90 min"; RUN_FAILED=1; continue
+        echo "TIMEOUT $CASE_ID run$RUN_NUM — exceeded 90 min"; cleanup_run_probe_files; RUN_FAILED=1; continue
     elif [ $EXIT_CODE -ne 0 ]; then
-        echo "FAILED $CASE_ID run$RUN_NUM — pipeline exit $EXIT_CODE"; RUN_FAILED=1; continue
+        echo "FAILED $CASE_ID run$RUN_NUM — pipeline exit $EXIT_CODE"; cleanup_run_probe_files; RUN_FAILED=1; continue
     fi
 
     if [ ! -f "$PARTICLE_VTK" ]; then
         echo "FAILED $CASE_ID run$RUN_NUM — VTK not found: $PARTICLE_VTK"
+        cleanup_run_probe_files
         RUN_FAILED=1; continue
     fi
 
@@ -180,6 +193,7 @@ for RUN_NUM in $(seq 1 "$RUNS"); do
     set -e
     if [ $CONNECTED_EXIT -ne 0 ] || [ ! -f "$CONNECTED_VTK" ]; then
         echo "FAILED $CASE_ID run$RUN_NUM — ReadParticlesWriteConnectedParticles failed"
+        cleanup_run_probe_files
         RUN_FAILED=1; continue
     fi
 
@@ -230,12 +244,7 @@ PYEOF
         echo "WARNING $CASE_ID run$RUN_NUM — phenotype failed (non-fatal)"
 
     # 5. Per-run probe file cleanup (always)
-    rm -f "$TMPDIR_SHARED"/pass*.nrrd \
-          "$TMPDIR_SHARED"/heval*.nrrd \
-          "$TMPDIR_SHARED"/hevec*.nrrd \
-          "$TMPDIR_SHARED"/hmode.nrrd \
-          "$TMPDIR_SHARED"/hess.nrrd \
-          "$TMPDIR_SHARED"/val.nrrd
+    cleanup_run_probe_files
 
     # 6. Artifact validation and Windows staging
     ARTIFACTS=("$PARTICLE_VTK" "$CONNECTED_VTK")

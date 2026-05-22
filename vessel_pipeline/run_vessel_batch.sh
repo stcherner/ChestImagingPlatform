@@ -62,25 +62,27 @@ if [ "$AVAIL_MB" -lt "$NEEDED_MB" ]; then
 fi
 
 # ── Scan discovery + collision check ─────────────────────────────────────────
-mapfile -t NII_FILES < <(find "$DATA_DIR" -name "*.nii.gz" -type f | sort)
-if [ ${#NII_FILES[@]} -eq 0 ]; then
+mapfile -t ALL_NII_FILES < <(find "$DATA_DIR" -name "*.nii.gz" -type f | sort)
+if [ ${#ALL_NII_FILES[@]} -eq 0 ]; then
     echo "ERROR: no .nii.gz files found in $DATA_DIR" >&2; exit 1
 fi
 
 # Collision detection
 declare -A CASE_ID_MAP
 COLLISIONS=()
-for NII in "${NII_FILES[@]}"; do
+NII_FILES=()
+for NII in "${ALL_NII_FILES[@]}"; do
     CID=$(basename "$NII" .nii.gz | tr ' ()' '_-_' | tr -d "'\"")
     if [ -n "${CASE_ID_MAP[$CID]+x}" ]; then
-        COLLISIONS+=("$CID: '${CASE_ID_MAP[$CID]}' and '$NII'")
+        COLLISIONS+=("$CID: keeping '${CASE_ID_MAP[$CID]}', skipping '$NII'")
+        continue
     fi
     CASE_ID_MAP[$CID]="$NII"
+    NII_FILES+=("$NII")
 done
 if [ ${#COLLISIONS[@]} -gt 0 ]; then
-    echo "ERROR: CASE_ID collisions detected:" >&2
+    echo "WARNING: CASE_ID collisions detected:" >&2
     printf '  %s\n' "${COLLISIONS[@]}" >&2
-    exit 1
 fi
 
 TOTAL_RUNS=$(( ${#NII_FILES[@]} * RUNS ))
