@@ -254,12 +254,12 @@ done
 # Collect phenotype CSVs
 find "$OUTPUT_BASE" -name '*_vascularPhenotypes.csv' \
     -exec cp {} "$SUMMARY_DIR/" \; 2>/dev/null || true
-CSV_COUNT=$(ls "$SUMMARY_DIR"/*.csv 2>/dev/null | wc -l)
+CSV_COUNT=$(find "$SUMMARY_DIR" -maxdepth 1 -name '*_vascularPhenotypes.csv' | wc -l)
 echo ""
 echo "Phenotype CSVs collected: $CSV_COUNT -> $SUMMARY_DIR"
 
 # Watchdog events
-WARN_COUNT=$(grep -c "WARNING\|CRITICAL" "$WATCHDOG_LOG" 2>/dev/null || echo 0)
+WARN_COUNT=$(grep -cE "WARNING|CRITICAL" "$WATCHDOG_LOG" 2>/dev/null) || WARN_COUNT=0
 echo "Watchdog events: $WARN_COUNT  (see $WATCHDOG_LOG)"
 
 # Failed cases
