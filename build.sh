@@ -155,8 +155,8 @@ if [ "$PASS1_EXIT" -ne 0 ]; then
         echo ""
         echo "=== Applying ExodusII patch ==="
         apply_patch_sed "$EXODUS_FILE" \
-            "exodus_unused_symbol_dummy_1 =" \
-            "exodus_unused_symbol_dummy_2 =" \
+            "exodus_unused_symbol_dummy_1;" \
+            "exodus_unused_symbol_dummy_2;" \
             "ExodusII duplicate symbol rename"
         PASS1_KNOWN=1
     fi
