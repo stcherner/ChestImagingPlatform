@@ -238,6 +238,26 @@ else
     else
         echo "  [already patched] VNL GCC version check"
     fi
+
+    # ── ITK spFactor.c patch (GCC 15 C23 K&R compat) ─────────────────────────
+    # spFactor.c has local forward declarations using K&R empty-arg style:
+    #   RealNumber  FindBiggestInColExclude();   (3 occurrences)
+    #   RealNumber  FindLargestInCol();           (1 occurrence)
+    # GCC 15 C23 interprets () as (void), which conflicts with the actual
+    # definitions that take arguments. The file already has proper static
+    # prototypes at the top (lines 81-82), so these locals are redundant.
+    SPFACTOR_FILE="$CIP_BUILD_DIR/ITKv4/Modules/ThirdParty/VNL/src/vxl/v3p/netlib/sparse/spFactor.c"
+    if [ -f "$SPFACTOR_FILE" ]; then
+        echo ""
+        echo "=== Applying ITK spFactor.c patch (GCC 15 C23 K&R compat) ==="
+        if ! grep -qF 'RealNumber  FindBiggestInColExclude();' "$SPFACTOR_FILE" 2>/dev/null; then
+            echo "  [already patched] spFactor.c K&R local declarations"
+        else
+            sed -i '/^RealNumber  FindBiggestInColExclude();$/d' "$SPFACTOR_FILE"
+            sed -i '/^RealNumber  FindLargestInCol();$/d' "$SPFACTOR_FILE"
+            echo "  [patched] spFactor.c: removed K&R local forward declarations"
+        fi
+    fi
 fi
 
 # ── Build pass 3: final ────────────────────────────────────────────────────────
