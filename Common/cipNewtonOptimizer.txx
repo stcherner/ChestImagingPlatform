@@ -123,7 +123,7 @@ void cipNewtonOptimizer< Dimension >::Update( bool verbose )
     if ( verbose )
       {
       std::cout << "Dimension:\t" << Dimension << std::endl;
-      std::cout << "this->GradientTolerance:\t" << this->GradientTolerance << std::endl;
+      std::cout << "this->GradientDifferenceTolerance:\t" << this->GradientDifferenceTolerance << std::endl;
       std::cout << "this->OptimalValue:\t" << this->OptimalValue << std::endl;
       std::cout << "Hessian:\t" << h[0][0] << "\t" << h[0][1] << "\t" << h[1][0] << "\t" << h[1][1] << "\t" << std::endl;
       std::cout << "Hessian Inv:\t" << (*hInv)[0][0] << "\t" << (*hInv)[0][1] << "\t" << (*hInv)[1][0] << "\t" << (*hInv)[1][1] << "\t" << std::endl;
