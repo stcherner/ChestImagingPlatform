@@ -92,6 +92,7 @@ if [ ! -f "$CIP_BUILD_DIR/CMakeCache.txt" ]; then
         -DCIP_USE_QT=OFF \
         -DBUILD_TESTING=OFF \
         -DCIP_VTK_RENDERING_BACKEND=OpenGL2 \
+        -DUSE_CYTHON=OFF \
         -DADDITIONAL_C_FLAGS="-fcommon -std=gnu11" \
         -DADDITIONAL_CXX_FLAGS="-fcommon -Wno-template-body" \
         -DPYTHON_EXECUTABLE="$VENV/bin/python"
