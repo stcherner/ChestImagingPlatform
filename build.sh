@@ -93,7 +93,7 @@ if [ ! -f "$CIP_BUILD_DIR/CMakeCache.txt" ]; then
         -DBUILD_TESTING=OFF \
         -DCIP_VTK_RENDERING_BACKEND=OpenGL2 \
         -DADDITIONAL_C_FLAGS="-fcommon -std=gnu11" \
-        -DADDITIONAL_CXX_FLAGS=-fcommon \
+        -DADDITIONAL_CXX_FLAGS="-fcommon -Wno-template-body" \
         -DPYTHON_EXECUTABLE="$VENV/bin/python"
 else
     echo "=== CMakeCache.txt exists — skipping configure ==="
