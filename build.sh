@@ -173,7 +173,35 @@ fi
 # ── Build pass 3: final ────────────────────────────────────────────────────────
 echo ""
 echo "=== Build pass 3 (final) ==="
+set +e
 make -j"$BUILD_JOBS" 2>&1 | tee -a "$CIP_BUILD_DIR/build.log"
+PASS3_EXIT=${PIPESTATUS[0]}
+set -e
+
+if [ "$PASS3_EXIT" -ne 0 ]; then
+    # VTK 8.2 has a known parallel link race: core .so files (vtkCommonCore,
+    # vtkCommonExecutionModel) sometimes aren't ready when downstream libs
+    # (vtkOpenGL, vtkIO, vtkRendering) try to link against them. This produces
+    # hundreds of "undefined reference to `vtk..." errors and is not a real
+    # compilation failure. Retrying with -j2 serializes the link step enough
+    # to avoid the race; all object files are already built so only linking runs.
+    if grep -q "undefined reference.*vtk" "$CIP_BUILD_DIR/build.log" 2>/dev/null; then
+        echo ""
+        echo "=== VTK parallel link race detected — retrying with -j2 ==="
+        set +e
+        make -j2 2>&1 | tee -a "$CIP_BUILD_DIR/build.log"
+        RETRY_EXIT=${PIPESTATUS[0]}
+        set -e
+        if [ "$RETRY_EXIT" -ne 0 ]; then
+            echo "ERROR: -j2 retry also failed. Check $CIP_BUILD_DIR/build.log." >&2
+            exit 1
+        fi
+    else
+        echo "ERROR: Pass 3 failed (not a VTK link race). Check $CIP_BUILD_DIR/build.log." >&2
+        exit 1
+    fi
+fi
+
 echo ""
 echo "=== CIP SuperBuild complete ==="
 
