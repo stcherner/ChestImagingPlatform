@@ -45,8 +45,16 @@ else
         TEEM_SRC="$SCRIPT_DIR/teem_src"
         TEEM_BUILD="$SCRIPT_DIR/teem_build"
 
+        # Pin to the exact Slicer-fork commit used in the CIP SuperBuild
+        # (External_teem.cmake SHA: e4746083c0e1dc0c137124c41eca5d23adf73bfa)
+        TEEM_COMMIT="e4746083c0e1dc0c137124c41eca5d23adf73bfa"
         if [ ! -d "$TEEM_SRC/.git" ]; then
-            git clone --depth 1 https://github.com/Slicer/teem.git "$TEEM_SRC"
+            git clone https://github.com/Slicer/teem.git "$TEEM_SRC"
+            git -C "$TEEM_SRC" checkout "$TEEM_COMMIT"
+        elif [ "$(git -C "$TEEM_SRC" rev-parse HEAD)" != "$TEEM_COMMIT" ]; then
+            echo "WARNING: teem_src HEAD is not the pinned commit — resetting to $TEEM_COMMIT"
+            git -C "$TEEM_SRC" fetch origin
+            git -C "$TEEM_SRC" checkout "$TEEM_COMMIT"
         fi
 
         mkdir -p "$TEEM_BUILD"
@@ -65,14 +73,23 @@ else
 
         echo ""
         echo "Teem built and installed to $TEEM_INSTALL"
-        echo "Add to PATH: export PATH=\"$TEEM_INSTALL/bin:\$PATH\""
 
-        # Write env file
-        cat > "$SCRIPT_DIR/env.sh" <<EOF
+        # Regenerate env.sh with full exports so workers find all binaries.
+        # CIP_BUILD_DIR defaults to $HOME/cip_build; override before sourcing
+        # if your SuperBuild lives elsewhere.
+        cat > "$SCRIPT_DIR/env.sh" <<'ENVEOF'
 #!/usr/bin/env bash
-export PATH="$TEEM_INSTALL/bin:\$PATH"
-source "$VENV_DIR/bin/activate"
-EOF
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+: "${CIP_BUILD_DIR:=$HOME/cip_build}"
+export CIP_BUILD_DIR
+export CIP_PATH="$CIP_BUILD_DIR/CIP-build/bin"
+export TEEM_PATH="$CIP_BUILD_DIR/teem-build/bin"
+export ITKTOOLS_PATH="$CIP_BUILD_DIR/itktools-build/bin"
+export PATH="$CIP_PATH:$TEEM_PATH:$SCRIPT_DIR/teem_install/bin:$PATH"
+export PYTHONPATH="$CIP_BUILD_DIR/CIP-build${PYTHONPATH:+:$PYTHONPATH}"
+source "$SCRIPT_DIR/venv/bin/activate"
+ENVEOF
+        chmod +x "$SCRIPT_DIR/env.sh"
         echo "Source $SCRIPT_DIR/env.sh to activate the environment."
     fi
 fi
