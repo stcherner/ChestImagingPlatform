@@ -71,8 +71,9 @@ mapfile -t _NII < <(find "$DATA_DIR" -maxdepth 3 -name "*.nii.gz" -type f | sort
 mapfile -t _DCM < <(
     for _d in "$DATA_DIR"/*/; do
         [ -d "$_d" ] || continue
-        find "$_d" -maxdepth 3 -name "*.dcm" -type f -print -quit 2>/dev/null \
-            | grep -q . && echo "${_d%/}"
+        if [ -n "$(find "$_d" -maxdepth 3 -iname "*.dcm" -type f -print -quit 2>/dev/null)" ]; then
+            echo "${_d%/}"
+        fi
     done | sort
 )
 ALL_NII_FILES=()

@@ -14,6 +14,7 @@ Usage:
 import argparse
 import os
 import sys
+import tempfile
 
 import SimpleITK as sitk
 
@@ -21,9 +22,21 @@ import SimpleITK as sitk
 def find_series(dicom_dir):
     """Return [(uid, file_list), ...] sorted by slice count descending.
 
-    Searches dicom_dir first; if no DICOM series is found there, walks one
-    level of subdirectories (handles scanner layout: patient/series/*.dcm).
+    Searches dicom_dir and subdirectories up to three levels deep (matching
+    batch discovery for scanner layouts such as patient/study/series/*.dcm).
     """
+    def _candidate_dirs(root, max_depth=3):
+        root = os.path.abspath(root)
+        yield root
+        for current, dirs, _ in os.walk(root):
+            rel = os.path.relpath(current, root)
+            depth = 0 if rel == "." else rel.count(os.sep) + 1
+            if depth >= max_depth:
+                dirs[:] = []
+                continue
+            for dirname in sorted(dirs):
+                yield os.path.join(current, dirname)
+
     def _collect(d):
         uids = sitk.ImageSeriesReader.GetGDCMSeriesIDs(d)
         result = []
@@ -33,18 +46,11 @@ def find_series(dicom_dir):
                 result.append((uid, list(files)))
         return result
 
-    series = _collect(dicom_dir)
-    if not series:
-        try:
-            subdirs = sorted(
-                e.path for e in os.scandir(dicom_dir) if e.is_dir()
-            )
-        except OSError:
-            subdirs = []
-        for sub in subdirs:
-            series = _collect(sub)
-            if series:
-                break
+    series_by_uid = {}
+    for candidate_dir in _candidate_dirs(dicom_dir):
+        for uid, files in _collect(candidate_dir):
+            series_by_uid.setdefault(uid, []).extend(files)
+    series = list(series_by_uid.items())
 
     if not series:
         raise RuntimeError(f"No DICOM series found in: {dicom_dir}")
@@ -107,7 +113,24 @@ def convert(dicom_dir, output_path=None, series_index=0, series_uid=None, list_o
     if out_dir:
         os.makedirs(out_dir, exist_ok=True)
 
-    sitk.WriteImage(img, output_path)
+    if os.path.exists(output_path) and os.path.getsize(output_path) > 0:
+        raise RuntimeError(f"Output already exists: {output_path}")
+
+    fd, tmp_output = tempfile.mkstemp(
+        prefix=f".{os.path.basename(output_path)}.",
+        suffix=".tmp.nii.gz",
+        dir=out_dir or ".",
+    )
+    os.close(fd)
+    try:
+        sitk.WriteImage(img, tmp_output)
+        os.replace(tmp_output, output_path)
+    except Exception:
+        try:
+            os.unlink(tmp_output)
+        except OSError:
+            pass
+        raise
     print(f"Written: {output_path}")
     return output_path
 
@@ -132,7 +155,7 @@ Examples:
     )
     p.add_argument(
         "dicom_dir",
-        help="Directory containing DICOM files (one level of subdirectories is also searched)",
+        help="Directory containing DICOM files (subdirectories up to three levels deep are also searched)",
     )
     p.add_argument(
         "output",
