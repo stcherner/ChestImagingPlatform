@@ -118,9 +118,11 @@ apply_patch_sed() {
 #   GCC 10-14: ExodusII duplicate symbol in ex_open_par.c
 #   GCC 15+:   vtklibxml2/threads.c K&R pthread declarations conflict with
 #              system pthread.h (GCC 15 adopted C23 where foo() = foo(void))
-# Both patches are applied proactively after pass 1 so pass 2 clears both.
+#   GCC 15+:   vtkeigen/Transpositions.h trt.derived() triggers -Wtemplate-body
+#              hard error (GCC 15 makes this a compile error, not just a warning)
+# All three patches are applied proactively after pass 1 so pass 2 clears them.
 echo ""
-echo "=== Build pass 1 (expect ExodusII / vtklibxml2 failure) ==="
+echo "=== Build pass 1 (expect ExodusII / vtklibxml2 / vtkeigen failure) ==="
 set +e
 make -j"$BUILD_JOBS" 2>&1 | tee -a "$CIP_BUILD_DIR/build.log"
 PASS1_EXIT=${PIPESTATUS[0]}
@@ -158,6 +160,22 @@ if [ "$PASS1_EXIT" -ne 0 ]; then
             "exodus_unused_symbol_dummy_1;" \
             "exodus_unused_symbol_dummy_2;" \
             "ExodusII duplicate symbol rename"
+        PASS1_KNOWN=1
+    fi
+
+    # ── vtkeigen Transpositions.h patch (GCC 15 -Wtemplate-body) ─────────────
+    # GCC 15 made -Wtemplate-body a hard compile error. The operator* friend
+    # function calls trt.derived() but GCC 15 cannot resolve derived() on
+    # Transpose<TranspositionsBase<Derived>> at template definition time.
+    # trt.derived() is semantically identical to trt (same type), so drop it.
+    EIGEN_FILE="$CIP_BUILD_DIR/VTKv8/ThirdParty/eigen/vtkeigen/eigen/src/Core/Transpositions.h"
+    if [ -f "$EIGEN_FILE" ]; then
+        echo ""
+        echo "=== Applying vtkeigen Transpositions patch (GCC 15 -Wtemplate-body) ==="
+        apply_patch_sed "$EIGEN_FILE" \
+            "matrix.derived(), trt.derived());" \
+            "matrix.derived(), trt);" \
+            "vtkeigen Transpositions.h: drop spurious .derived() on trt"
         PASS1_KNOWN=1
     fi
 
