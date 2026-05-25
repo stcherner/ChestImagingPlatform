@@ -23,8 +23,9 @@ What This Repo Adds
 | `build.sh` | 3-pass automated superbuild with patches; builds ITK-tools v0.3.3 |
 | `vessel_pipeline/setup.sh` | Creates Python venv, installs deps, builds Teem from pinned commit |
 | `vessel_pipeline/env.sh` | Sets `PATH`/`PYTHONPATH` for a built environment |
-| `vessel_pipeline/run_scan_worker.sh` | Single-scan vessel particle worker |
-| `vessel_pipeline/run_vessel_batch.sh` | GNU parallel batch orchestrator |
+| `vessel_pipeline/dicom_to_nifti.py` | Converts a DICOM CT series directory to NIfTI; auto-selects the CT volume |
+| `vessel_pipeline/run_scan_worker.sh` | Single-scan vessel particle worker (accepts NIfTI or DICOM directory) |
+| `vessel_pipeline/run_vessel_batch.sh` | GNU parallel batch orchestrator (accepts NIfTI files and/or DICOM dirs) |
 | `vessel_pipeline/Start-CIPBatch.ps1` | Windows launcher with automatic WSL2 resource tuning |
 
 
@@ -96,14 +97,36 @@ Pipeline Usage
 
 ### Single scan
 
+The worker accepts either a NIfTI file (`.nii.gz`) or a **DICOM directory**
+as its first argument. DICOM input is converted to NIfTI automatically before
+the rest of the pipeline runs.
+
 ```bash
 source vessel_pipeline/env.sh
 
+# From a NIfTI file:
 bash vessel_pipeline/run_scan_worker.sh \
-    /path/to/scan/dir \   # must contain CT.nrrd + partialLungLabelMap.nrrd
+    /path/to/patient.nii.gz \
     /path/to/output/dir \
-    WholeLung \           # region: WholeLung, RightLung, LeftLung, etc.
-    4                     # CPU cores to use
+    --region WholeLung --cores 4
+
+# From a DICOM directory (hundreds of .dcm slices):
+bash vessel_pipeline/run_scan_worker.sh \
+    /path/to/patient_dicom_dir/ \
+    /path/to/output/dir \
+    --region WholeLung --cores 4
+```
+
+If the DICOM directory contains multiple series (e.g. scout + axial CT), the
+series with the most slices is selected automatically. To inspect or override:
+
+```bash
+# List all series in a directory:
+python vessel_pipeline/dicom_to_nifti.py /path/to/patient_dicom_dir/ --list-series
+
+# Convert a specific series by index or UID:
+python vessel_pipeline/dicom_to_nifti.py /path/to/patient_dicom_dir/ \
+    --series-index 1 /output/CT.nii.gz
 ```
 
 Key flags passed internally to `cip_compute_vessel_particles.py`:
@@ -117,13 +140,33 @@ Key flags passed internally to `cip_compute_vessel_particles.py`:
 
 ### Batch processing
 
+The batch orchestrator scans the input directory for **both** `.nii.gz` files
+and DICOM patient subdirectories (any immediate subdirectory containing `.dcm`
+files). Mixed directories — some cases as NIfTI, others as DICOM — work
+without any special flags.
+
 **Linux/WSL2:**
 
 ```bash
 bash vessel_pipeline/run_vessel_batch.sh \
-    /path/to/scans \      # directory of per-case subdirectories
-    /path/to/runs \       # output root
-    4                     # max parallel jobs
+    /path/to/scans \        # NIfTI files and/or DICOM patient subdirectories
+    --output-base /path/to/runs \
+    --parallel 4 --cores-per-job 4
+```
+
+Expected input layouts — both are supported and can be mixed:
+
+```
+scans/
+  patient001.nii.gz          # NIfTI
+  patient002/                # DICOM directory
+    IM-0001.dcm
+    IM-0002.dcm
+    ...
+  patient003/                # DICOM with one extra nesting level
+    series01/
+      IM-0001.dcm
+      ...
 ```
 
 **Windows (launches WSL2 automatically):**
