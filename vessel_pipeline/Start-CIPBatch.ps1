@@ -172,7 +172,7 @@ if ($needsRestart) {
     }
 }
 
-# WSL path conversion: C:\Users\tcher\Desktop\dry -> /mnt/c/Users/tcher/Desktop/dry
+# WSL path conversion: C:\Users\YourName\Desktop\dry -> /mnt/c/Users/YourName/Desktop/dry
 function ConvertTo-WslPath([string]$winPath) {
     $p = $winPath -replace '\\', '/'
     if ($p -match '^([A-Za-z]):(.*)') {

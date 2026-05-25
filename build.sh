@@ -82,8 +82,8 @@ if [ ! -f "$CIP_BUILD_DIR/CMakeCache.txt" ]; then
         -DCIP_USE_QT=OFF \
         -DBUILD_TESTING=OFF \
         -DCIP_VTK_RENDERING_BACKEND=OpenGL2 \
-        -DCMAKE_C_FLAGS="-fcommon" \
-        -DCMAKE_CXX_FLAGS="-fcommon" \
+        -DADDITIONAL_C_FLAGS=-fcommon \
+        -DADDITIONAL_CXX_FLAGS=-fcommon \
         -DPYTHON_EXECUTABLE="$VENV/bin/python"
 else
     echo "=== CMakeCache.txt exists — skipping configure ==="
@@ -98,7 +98,8 @@ apply_patch_sed() {
         sed -i "s|${pattern}|${replacement}|g" "$file"
         echo "  [patched] $description"
     else
-        echo "  [WARNING] patch target not found: $description in $file" >&2
+        echo "  [ERROR] patch target not found: $description in $file" >&2
+        return 1
     fi
 }
 
@@ -128,8 +129,8 @@ else
         exit 1
     fi
     apply_patch_sed "$EXODUS_FILE" \
-        "exodus_unused_symbol_dummy_1" \
-        "exodus_unused_symbol_dummy_2" \
+        "exodus_unused_symbol_dummy_1 =" \
+        "exodus_unused_symbol_dummy_2 =" \
         "ExodusII duplicate symbol rename"
 fi
 
@@ -156,12 +157,12 @@ else
         echo "ERROR: $VNL_FILE not found" >&2
         exit 1
     fi
-    # Replace the #error line with a GCC 9+ compatibility block.
+    # Replace the full # else + #  error two-line block with GCC 9+ compatibility.
     # Before: # else\n#  error "Dunno about this gcc"
     # After:  # elif (__GNUC__>=9)\n#  define VCL_GCC_8
     if grep -q 'Dunno about this gcc' "$VNL_FILE"; then
-        sed -i \
-            's|#  error "Dunno about this gcc"|# elif (__GNUC__>=9)\n#  define VCL_GCC_8|' \
+        sed -i -z \
+            's/# else\n#  error "Dunno about this gcc"/# elif (__GNUC__>=9)\n#  define VCL_GCC_8/' \
             "$VNL_FILE"
         echo "  [patched] VNL GCC 9+ compatibility"
     else
@@ -197,7 +198,7 @@ mkdir -p "$ITKTOOLS_BUILD"
     -B "$ITKTOOLS_BUILD" \
     -DCMAKE_BUILD_TYPE=Release \
     -DITK_DIR="$CIP_BUILD_DIR/ITKv4-build"
-make -C "$ITKTOOLS_BUILD" -j"$BUILD_JOBS" 2>&1 | tee -a "$CIP_BUILD_DIR/itktools_build.log"
+make -C "$ITKTOOLS_BUILD" pxdistancetransform -j"$BUILD_JOBS" 2>&1 | tee -a "$CIP_BUILD_DIR/itktools_build.log"
 
 echo ""
 echo "=== ITK-tools build complete ==="

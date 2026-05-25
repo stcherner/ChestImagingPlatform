@@ -181,9 +181,8 @@ for RUN_NUM in $(seq 1 "$RUNS"); do
     fi
 
     # 2. Vessel extraction (90-min timeout)
-    # vesselness_th=0.38: production default chosen for higher sensitivity.
-    # Calibration also tested 0.58 (more conservative). The argparse default in
-    # cip_compute_vessel_particles.py was 0.50 (stale) and has been updated to 0.38.
+    # Production default is 0.5 (argparse + constructor). Calibration session tested
+    # 0.58 for research comparison. 0.38 was an earlier experimental value.
     echo "[$(date '+%H:%M:%S')] $CASE_ID run$RUN_NUM: vessel extraction"
     set +e  # capture exit code manually; pipefail would exit before we can read PIPESTATUS
     ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=$CORES \
@@ -197,7 +196,7 @@ for RUN_NUM in $(seq 1 "$RUNS"); do
         -s  0.625 \
         --init Threshold \
         --perm \
-        --vesselness_th 0.38 \
+        --vesselness_th 0.5 \
         2>&1 | grep -v "^$" | tail -5
     EXIT_CODE=${PIPESTATUS[0]}
     set -e

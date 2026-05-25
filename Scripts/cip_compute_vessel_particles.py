@@ -22,7 +22,7 @@ class VesselParticlesPipeline:
         """
     def __init__(self,ct_file_name,pl_file_name,regions,tmp_dir,output_prefix,init_method='Frangi',
                  vessel_mask=None,resampling_method='Linear',lth=-95,sth=-70,voxel_size=0,min_scale=0.7,max_scale=4,
-                 vesselness_th=0.38,crop=None,rate=1,multires=False,justparticles=False,clean_cache=True,
+                 vesselness_th=0.5,crop=None,rate=1,multires=False,justparticles=False,clean_cache=True,
              permissive=False):
         
         assert init_method == 'Frangi' or init_method == 'Threshold' or init_method == 'StrainEnergy' \
@@ -301,8 +301,8 @@ if __name__ == "__main__":
     parser.add_argument("--maxscale", dest="max_scale",type=float,default=4)
     parser.add_argument("--init", dest="init_method",default="Frangi")
     parser.add_argument("--vmask", dest="vessel_mask", default=None)
-    # 0.38: production default chosen for higher sensitivity (also tested: 0.58).
-    parser.add_argument("--vesselness_th", dest="vesselness_th",type=float,default=0.38)
+    # Production default 0.5. Calibration session also tested 0.38 (higher sensitivity) and 0.58 (more conservative).
+    parser.add_argument("--vesselness_th", dest="vesselness_th",type=float,default=0.5)
     parser.add_argument("--resampling", dest="resampling_method",default="Linear",help="Resampling method for CT image: linear, cubic, registration (demons-based approach), hybrid (registration + cubic)")
     parser.add_argument("--multires", dest="multires",action="store_true", default = False)
     parser.add_argument("--justparticles", dest="justparticles",action="store_true", default=False)

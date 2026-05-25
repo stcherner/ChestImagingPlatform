@@ -53,6 +53,20 @@ For C++ code, we follow [ITK Coding Style Guide] [1]. For python code, we follow
 [2]: http://www.python.org/dev/peps/pep-0008/        "PEP 8"
 [3]: https://github.com/acil-bwh/ChestImagingPlatform/wiki#building-instructions
 
+Notes for Downstream Users
+==========================
+
+### Hardcoded upstream paths
+Upstream CIP source contains hardcoded developer paths (`/Users/rolaharmouche/`, `/Users/jross/`,
+etc.) in files outside `vessel_pipeline/`. These paths are in the original BWH developer code and
+do not affect the vessel pipeline workflow documented in `vessel_pipeline/`. They are left as-is
+to preserve fidelity with upstream.
+
+### Repository size and Git LFS
+The repository is approximately 85 MB due to upstream `.nrrd` test data files committed directly
+to git. Migration to [Git LFS](https://git-lfs.github.com/) is optional; the vessel pipeline
+does not depend on these test files.
+
 Acknowledgments
 =================
 CIP is funded by the National Heart, Lung, And Blood Institute of the National Institutes of Health under Award Number R01HL116931. The content is solely the responsibility of the authors and does not necessarily represent the official views of the National Institutes of Health.
