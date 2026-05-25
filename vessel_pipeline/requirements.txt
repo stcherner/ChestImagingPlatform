@@ -8,3 +8,4 @@ vtk>=9.0
 pandas
 matplotlib
 networkx
+cython

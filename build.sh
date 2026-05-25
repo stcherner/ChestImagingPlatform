@@ -95,6 +95,8 @@ if [ ! -f "$CIP_BUILD_DIR/CMakeCache.txt" ]; then
         -DUSE_CYTHON=OFF \
         -DADDITIONAL_C_FLAGS="-fcommon -std=gnu11" \
         -DADDITIONAL_CXX_FLAGS="-fcommon -Wno-template-body" \
+        -DCMAKE_CXX_VISIBILITY_PRESET=default \
+        -DCMAKE_C_VISIBILITY_PRESET=default \
         -DPYTHON_EXECUTABLE="$VENV/bin/python"
 else
     echo "=== CMakeCache.txt exists — skipping configure ==="
@@ -203,6 +205,20 @@ if [ "$PASS1_EXIT" -ne 0 ]; then
     fi
 else
     echo "Pass 1 succeeded (VTK already built or no patches needed)"
+fi
+
+# ── Fix VTK visibility after source download ──────────────────────────────────
+# VTK's own CMakeLists.txt forces hidden visibility; the top-level flags do not
+# propagate into the ExternalProject. Reconfigure the VTK build directory
+# directly so Pass 2 compiles and links with default (visible) symbols.
+if [ -d "$CIP_BUILD_DIR/VTKv8-build" ]; then
+    echo ""
+    echo "=== Configuring VTK with proper symbol visibility ==="
+    cd "$CIP_BUILD_DIR/VTKv8-build"
+    "$CMAKE" . \
+        -DCMAKE_CXX_VISIBILITY_PRESET=default \
+        -DCMAKE_C_VISIBILITY_PRESET=default
+    cd "$CIP_BUILD_DIR"
 fi
 
 # ── Build pass 2: expect ITK VNL failure ──────────────────────────────────────
