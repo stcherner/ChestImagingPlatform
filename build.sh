@@ -61,13 +61,23 @@ echo ""
 
 # ── System deps check ─────────────────────────────────────────────────────────
 MISSING_PKGS=()
-for pkg in libgl-dev libglu-dev libxt-dev build-essential git; do
+for pkg in libgl-dev libxt-dev build-essential git; do
     dpkg -s "$pkg" &>/dev/null || MISSING_PKGS+=("$pkg")
 done
+# libglu-dev was renamed to libglu1-mesa-dev in Ubuntu 24.04; accept either.
+if ! dpkg -s libglu1-mesa-dev &>/dev/null && ! dpkg -s libglu-dev &>/dev/null; then
+    MISSING_PKGS+=(libglu1-mesa-dev)
+fi
 if [ ${#MISSING_PKGS[@]} -gt 0 ]; then
     echo "Missing system packages: ${MISSING_PKGS[*]}"
     echo "Installing..."
-    sudo apt-get install -y "${MISSING_PKGS[@]}"
+    if ! sudo apt-get install -y "${MISSING_PKGS[@]}"; then
+        echo "" >&2
+        echo "ERROR: Could not install system packages automatically." >&2
+        echo "Please run manually and then re-run build.sh:" >&2
+        echo "  sudo apt-get install -y ${MISSING_PKGS[*]}" >&2
+        exit 1
+    fi
 fi
 
 # ── CMake configure ───────────────────────────────────────────────────────────
