@@ -205,7 +205,7 @@ Pinned Dependencies
 | Python | 3.11+ (tested on 3.14.4) |
 | GCC | 13+ (tested on 15.2.0) |
 
-Four patches are applied automatically by `build.sh`:
+Six patches are applied automatically by `build.sh`:
 
 1. **ExodusII** (`ex_open_par.c`) — renames `exodus_unused_symbol_dummy_1`
    to avoid a duplicate-symbol link error under GCC 10+.
@@ -215,8 +215,12 @@ Four patches are applied automatically by `build.sh`:
    with real pthread signatures.
 3. **vtkeigen** (`Transpositions.h`) — removes a spurious `.derived()`
    call that GCC 15 rejects as a hard error under `-Wtemplate-body`.
-4. **VNL** (`vcl_compiler.h`) — adds a `# elif (__GNUC__>=9)` branch to
+4. **VTK octree** (`octree_node.cxx`) — fixes a typo `_M_chilren` →
+   `_M_children` that GCC 15 rejects as a hard `-Wtemplate-body` error.
+5. **VNL** (`vcl_compiler.h`) — adds a `# elif (__GNUC__>=9)` branch to
    unblock the GCC version check that hard-errors on GCC 9+.
+6. **ITK spFactor** (`spFactor.c`) — removes redundant K&R-style local
+   forward declarations that conflict with GCC 15 C23 (`()` = `(void)`).
 
 
 Known Upstream Issues
