@@ -12,7 +12,9 @@ if [ -z "${CIP_PATH:-}" ]; then
 fi
 
 PIPELINE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/Scripts/cip_compute_vessel_particles.py"
-PHENO_SCRIPT="$HOME/cip_build/CIP-build/cip_python/phenotypes/vasculature_phenotypes.py"
+# CIP_BUILD_DIR is exported by env.sh; fall back to default if called standalone without env.sh
+: "${CIP_BUILD_DIR:=$HOME/cip_build}"
+PHENO_SCRIPT="$CIP_BUILD_DIR/CIP-build/cip_python/phenotypes/vasculature_phenotypes.py"
 
 # ── CLI parsing ───────────────────────────────────────────────────────────────
 NII_PATH="${1:?Usage: $0 <nii_path> <output_dir> --runs N --cores N --region R --cleanup X}"
@@ -35,6 +37,10 @@ while [[ $# -gt 0 ]]; do
         *) echo "Unknown argument: $1" >&2; exit 1 ;;
     esac
 done
+
+# Validate numeric args
+[[ "$RUNS" =~ ^[1-9][0-9]*$ ]] || { echo "ERROR: --runs must be a positive integer, got: $RUNS" >&2; exit 1; }
+[[ "$CORES" =~ ^[1-9][0-9]*$ ]] || { echo "ERROR: --cores must be a positive integer, got: $CORES" >&2; exit 1; }
 
 # Validate cleanup value
 case "$CLEANUP" in
@@ -73,7 +79,20 @@ CASE_ID=$(basename "$NII_PATH" .nii.gz | tr ' ()' '_-_' | tr -d "'\"")
 # or by a standalone caller as $BASE/$CASE_ID). Do NOT append CASE_ID again.
 CASEDIR="$OUTPUT_DIR"
 TMPDIR_SHARED="$CASEDIR/tmp"
+if [[ "$CASEDIR" == /mnt/c/* ]] && ! mountpoint -q /mnt/c; then
+    echo "ERROR: /mnt/c is not mounted" >&2; exit 1
+fi
 mkdir -p "$CASEDIR" "$TMPDIR_SHARED"
+
+cleanup_tmp_on_exit() {
+    cleanup_run_probe_files 2>/dev/null || true
+    rm -f "$CASEDIR"/*.tmp.nrrd 2>/dev/null || true
+    case "$CLEANUP" in
+        light) rm -f "$TMPDIR_SHARED"/mask.nrrd 2>/dev/null || true ;;
+        all)   rm -rf "$TMPDIR_SHARED" 2>/dev/null || true ;;
+    esac
+}
+trap cleanup_tmp_on_exit EXIT
 
 echo "[$(date '+%H:%M:%S')] START $CASE_ID (runs=$RUNS cores=$CORES region=$REGION cleanup=$CLEANUP)"
 
@@ -89,9 +108,10 @@ cleanup_run_probe_files() {
 # ── Preprocessing (idempotent, atomic writes) ─────────────────────────────────
 preprocess() {
     # Step 1: NIfTI -> NRRD (cast to int16)
-    if [ ! -f "$CASEDIR/CT.nrrd" ]; then
+    if [ ! -s "$CASEDIR/CT.nrrd" ]; then
         echo "[$(date '+%H:%M:%S')] $CASE_ID preprocessing: NIfTI -> NRRD"
-        NII_IN="$NII_PATH" NRRD_OUT="$CASEDIR/CT.tmp.nrrd" \
+        CT_TMP=$(mktemp "$CASEDIR/CT.XXXXXX.tmp.nrrd")
+        NII_IN="$NII_PATH" NRRD_OUT="$CT_TMP" \
         python -c "
 import os, SimpleITK as sitk
 img = sitk.ReadImage(os.environ['NII_IN'])
@@ -100,29 +120,31 @@ sitk.WriteImage(img, os.environ['NRRD_OUT'])
 sz = img.GetSize(); sp = img.GetSpacing()
 print(f'  size={sz} spacing=({sp[0]:.4f},{sp[1]:.4f},{sp[2]:.4f})')
 "
-        mv "$CASEDIR/CT.tmp.nrrd" "$CASEDIR/CT.nrrd"
+        mv "$CT_TMP" "$CASEDIR/CT.nrrd"
     else
         echo "[$(date '+%H:%M:%S')] $CASE_ID CT.nrrd exists, skipping"
     fi
 
     # Step 2: Median filter
-    if [ ! -f "$CASEDIR/CTFiltered.nrrd" ]; then
+    if [ ! -s "$CASEDIR/CTFiltered.nrrd" ]; then
         echo "[$(date '+%H:%M:%S')] $CASE_ID preprocessing: median filter"
+        CTF_TMP=$(mktemp "$CASEDIR/CTFiltered.XXXXXX.tmp.nrrd")
         GenerateMedianFilteredImage \
             -i "$CASEDIR/CT.nrrd" \
-            -o "$CASEDIR/CTFiltered.tmp.nrrd" 2>&1 | tail -2
-        mv "$CASEDIR/CTFiltered.tmp.nrrd" "$CASEDIR/CTFiltered.nrrd"
+            -o "$CTF_TMP" 2>&1 | tail -2
+        mv "$CTF_TMP" "$CASEDIR/CTFiltered.nrrd"
     else
         echo "[$(date '+%H:%M:%S')] $CASE_ID CTFiltered.nrrd exists, skipping"
     fi
 
     # Step 3: Label map (from filtered CT)
-    if [ ! -f "$CASEDIR/partialLungLabelMap.nrrd" ]; then
+    if [ ! -s "$CASEDIR/partialLungLabelMap.nrrd" ]; then
         echo "[$(date '+%H:%M:%S')] $CASE_ID preprocessing: label map"
+        LM_TMP=$(mktemp "$CASEDIR/partialLungLabelMap.XXXXXX.tmp.nrrd")
         GeneratePartialLungLabelMap \
             --ict "$CASEDIR/CTFiltered.nrrd" \
-            -o "$CASEDIR/partialLungLabelMap.tmp.nrrd" 2>&1 | tail -2
-        mv "$CASEDIR/partialLungLabelMap.tmp.nrrd" "$CASEDIR/partialLungLabelMap.nrrd"
+            -o "$LM_TMP" 2>&1 | tail -2
+        mv "$LM_TMP" "$CASEDIR/partialLungLabelMap.nrrd"
     else
         echo "[$(date '+%H:%M:%S')] $CASE_ID partialLungLabelMap.nrrd exists, skipping"
     fi
@@ -144,6 +166,12 @@ for RUN_NUM in $(seq 1 "$RUNS"); do
     CONNECTED_VTK="$RUN_DIR/connected_vessel_particles.vtk"
     RUN_START=$(date +%s)
 
+    # Skip if both outputs already exist and are non-empty
+    if [ -s "$PARTICLE_VTK" ] && [ -s "$CONNECTED_VTK" ]; then
+        echo "[$(date '+%H:%M:%S')] $CASE_ID run$RUN_NUM already complete, skipping"
+        continue
+    fi
+
     # 1. Disk space check
     AVAIL_KB=$(df --output=avail "$CASEDIR" | tail -1 | tr -d ' ')
     if [ "$AVAIL_KB" -lt 6291456 ]; then
@@ -153,6 +181,9 @@ for RUN_NUM in $(seq 1 "$RUNS"); do
     fi
 
     # 2. Vessel extraction (90-min timeout)
+    # vesselness_th=0.38: production default chosen for higher sensitivity.
+    # Calibration also tested 0.58 (more conservative). The argparse default in
+    # cip_compute_vessel_particles.py was 0.50 (stale) and has been updated to 0.38.
     echo "[$(date '+%H:%M:%S')] $CASE_ID run$RUN_NUM: vessel extraction"
     set +e  # capture exit code manually; pipefail would exit before we can read PIPESTATUS
     ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=$CORES \
@@ -203,7 +234,7 @@ for RUN_NUM in $(seq 1 "$RUNS"); do
     echo "[$(date '+%H:%M:%S')] $CASE_ID run$RUN_NUM: phenotypes"
 
     set +e
-    PYTHONPATH="$HOME/cip_build/CIP-build" \
+    PYTHONPATH="$CIP_BUILD_DIR/CIP-build" \
     python "$PHENO_SCRIPT" \
         -i "$PARTICLE_VTK" \
         --out_csv "$CSV_OUT" \
@@ -217,10 +248,10 @@ for RUN_NUM in $(seq 1 "$RUNS"); do
         echo "  phenotype CLI failed (exit $PHENO_EXIT) — trying API fallback"
         set +e
         PHENO_IN="$PARTICLE_VTK" PHENO_CSV="$CSV_OUT" PHENO_PNG="$PNG_OUT" \
-        PHENO_CID="$CASE_ID" \
-        PYTHONPATH="$HOME/cip_build/CIP-build" python - <<'PYEOF'
+        PHENO_CID="$CASE_ID" PHENO_CIPBUILD="$CIP_BUILD_DIR/CIP-build" \
+        PYTHONPATH="$CIP_BUILD_DIR/CIP-build" python - <<'PYEOF'
 import os, sys, vtk, numpy as np
-sys.path.insert(0, os.environ['HOME'] + '/cip_build/CIP-build')
+sys.path.insert(0, os.environ['PHENO_CIPBUILD'])
 from cip_python.phenotypes.vasculature_phenotypes import VasculaturePhenotypes
 r = vtk.vtkPolyDataReader()
 r.SetFileName(os.environ['PHENO_IN']); r.Update()
@@ -257,7 +288,9 @@ PYEOF
 
     if [ -n "$STAGE_TO" ]; then
         DEST="$STAGE_TO/$CASE_ID/run${RUN_NUM}"
-        if mkdir -p "$DEST" 2>/dev/null; then
+        if [[ "$DEST" == /mnt/c/* ]] && ! mountpoint -q /mnt/c; then
+            echo "  WARNING: cannot create $DEST (/mnt/c is not mounted)"
+        elif mkdir -p "$DEST" 2>/dev/null; then
             cp "${ARTIFACTS[@]}" "$DEST/" 2>/dev/null \
                 && echo "  staged -> $DEST" \
                 || echo "  WARNING: staging copy failed (Windows mount issue?)"

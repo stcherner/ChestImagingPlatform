@@ -17,10 +17,14 @@
     Override auto-calculated parallelism.
 .PARAMETER Cleanup
     Cleanup policy: none|light|all. Default: light.
+.PARAMETER WslRepoPath
+    WSL path to the cloned ChestImagingPlatform-master repo. Default: ~/cip_source/ChestImagingPlatform-master.
+    Override if you cloned to a different location, e.g. ~/repos/ChestImagingPlatform.
 .EXAMPLE
-    .\Start-CIPBatch.ps1 -DataDir "C:\Users\tcher\Desktop\dry"
-    .\Start-CIPBatch.ps1 -DataDir "C:\Users\tcher\Desktop\dry" -DryRun
-    .\Start-CIPBatch.ps1 -DataDir "C:\Users\tcher\Desktop\dry" -RunsPerParticipant 2
+    .\Start-CIPBatch.ps1 -DataDir "C:\Data\scans"
+    .\Start-CIPBatch.ps1 -DataDir "C:\Data\scans" -DryRun
+    .\Start-CIPBatch.ps1 -DataDir "C:\Data\scans" -RunsPerParticipant 2
+    .\Start-CIPBatch.ps1 -DataDir "C:\Data\scans" -WslRepoPath "~/repos/ChestImagingPlatform-master"
 #>
 param(
     [Parameter(Mandatory=$true)][string]$DataDir,
@@ -30,7 +34,8 @@ param(
     [string]$Region          = "WholeLung",
     [switch]$DryRun,
     [int]$ForceParallel      = 0,
-    [string]$Cleanup         = "light"
+    [string]$Cleanup         = "light",
+    [string]$WslRepoPath     = "~/cip_source/ChestImagingPlatform-master"
 )
 
 Set-StrictMode -Version Latest
@@ -188,7 +193,7 @@ Write-Host "  Runs:     $RunsPerParticipant"
 Write-Host "  Region:   $Region"
 Write-Host ""
 
-$orchestrator = "~/cip_source/ChestImagingPlatform-master/vessel_pipeline/run_vessel_batch.sh"
+$orchestrator = "$WslRepoPath/vessel_pipeline/run_vessel_batch.sh"
 $wslArgs = @($orchestrator, $wslDataDir,
     "--parallel", "$maxParallel", "--cores-per-job", "$coresPerJob",
     "--runs", "$RunsPerParticipant", "--region", "$Region",

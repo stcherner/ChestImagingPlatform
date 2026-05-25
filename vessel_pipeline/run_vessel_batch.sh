@@ -21,7 +21,7 @@ RUNS=1
 REGION="WholeLung"
 CLEANUP="light"
 STAGE_TO=""
-OUTPUT_BASE="$HOME/cip_build/runs/batch_$(date +%Y%m%d_%H%M%S)"
+OUTPUT_BASE="$HOME/cip_build/runs/batch_$(date +%Y%m%d_%H%M%S)_$$"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -35,6 +35,9 @@ while [[ $# -gt 0 ]]; do
         *) echo "Unknown argument: $1" >&2; exit 1 ;;
     esac
 done
+
+[[ "$MAX_PARALLEL" =~ ^[1-9][0-9]*$ ]] || { echo "ERROR: --parallel must be a positive integer, got: $MAX_PARALLEL" >&2; exit 1; }
+[[ "$RUNS" =~ ^[1-9][0-9]*$ ]] || { echo "ERROR: --runs must be a positive integer, got: $RUNS" >&2; exit 1; }
 
 LOG_DIR="$OUTPUT_BASE/logs"
 SUMMARY_DIR="$OUTPUT_BASE/summary"
@@ -62,10 +65,11 @@ if [ "$AVAIL_MB" -lt "$NEEDED_MB" ]; then
 fi
 
 # ── Scan discovery + collision check ─────────────────────────────────────────
-mapfile -t ALL_NII_FILES < <(find "$DATA_DIR" -name "*.nii.gz" -type f | sort)
-if [ ${#ALL_NII_FILES[@]} -eq 0 ]; then
+FIND_OUT=$(find "$DATA_DIR" -name "*.nii.gz" -type f | sort) || { echo "ERROR: failed to scan data dir: $DATA_DIR" >&2; exit 1; }
+if [ -z "$FIND_OUT" ]; then
     echo "ERROR: no .nii.gz files found in $DATA_DIR" >&2; exit 1
 fi
+mapfile -t ALL_NII_FILES <<< "$FIND_OUT"
 
 # Collision detection
 declare -A CASE_ID_MAP
@@ -114,14 +118,17 @@ MEM_CRIT_KB=$(( MEM_TOTAL_KB * 10 / 100 ))
 
 start_watchdog() {
     (
-        echo "[$(date '+%H:%M:%S')] watchdog started total=${MEM_TOTAL_KB}kB warn=${MEM_WARN_KB}kB crit=${MEM_CRIT_KB}kB"
+        OUR_SID=$(ps -o sess= -p $$ 2>/dev/null | tr -d ' ')
+        echo "[$(date '+%H:%M:%S')] watchdog started total=${MEM_TOTAL_KB}kB warn=${MEM_WARN_KB}kB crit=${MEM_CRIT_KB}kB session=${OUR_SID}"
         while true; do
             AVAIL=$(awk '/MemAvailable/ {print $2}' /proc/meminfo)
             SWAP_FREE=$(awk '/SwapFree/ {print $2}' /proc/meminfo)
             TS="[$(date '+%H:%M:%S')]"
             if [ "$AVAIL" -lt "$MEM_CRIT_KB" ]; then
-                VICTIM=$(ps aux --sort=-rss 2>/dev/null | \
-                    awk '$0 ~ /puller|cip_compute|ComputeFeatureStrength|GeneratePartialLungLabelMap/ && !/awk/ {print $2, $11; exit}')
+                VICTIM=$(ps -eo pid,sess,rss,comm,args --sort=-rss 2>/dev/null | \
+                    awk -v sid="$OUR_SID" \
+                        '$2==sid && $0 ~ /puller|cip_compute|ComputeFeatureStrength|GeneratePartialLungLabelMap/ && !/awk/ \
+                        {print $1, $4; exit}')
                 echo "$TS CRITICAL avail=${AVAIL}kB swap_free=${SWAP_FREE}kB — killing: $VICTIM"
                 VICTIM_PID=$(echo "$VICTIM" | awk '{print $1}')
                 [ -n "$VICTIM_PID" ] && kill -TERM "$VICTIM_PID" 2>/dev/null
@@ -136,8 +143,12 @@ start_watchdog() {
 }
 
 stop_watchdog() {
-    [ -n "$WATCHDOG_PID" ] && kill "$WATCHDOG_PID" 2>/dev/null || true
-    echo "Memory watchdog stopped"
+    if [ -n "$WATCHDOG_PID" ]; then
+        kill "$WATCHDOG_PID" 2>/dev/null || true
+        wait "$WATCHDOG_PID" 2>/dev/null || true
+        WATCHDOG_PID=""
+        echo "Memory watchdog stopped"
+    fi
 }
 
 trap stop_watchdog EXIT
@@ -164,6 +175,7 @@ export SCRIPT_DIR LOG_DIR
 
 # ── Build job TSV ─────────────────────────────────────────────────────────────
 JOB_TSV="$OUTPUT_BASE/job_args.tsv"
+: > "$JOB_TSV"  # truncate on every run to prevent duplicate jobs on restart
 for NII in "${NII_FILES[@]}"; do
     CID=$(basename "$NII" .nii.gz | tr ' ()' '_-_' | tr -d "'\"")
     printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
@@ -176,14 +188,19 @@ done
 FAILED_CASES=()
 
 if [ "$USE_PARALLEL" -eq 1 ]; then
+    JOBLOG="$OUTPUT_BASE/parallel_joblog.tsv"
     echo "Dispatching with GNU parallel (-j $MAX_PARALLEL, 10s stagger)..."
-    parallel --delay 10 -j "$MAX_PARALLEL" --colsep '\t' \
+    set +e
+    parallel --will-cite --joblog "$JOBLOG" --delay 10 -j "$MAX_PARALLEL" --colsep '\t' \
         run_one_job {1} {2} {3} {4} {5} {6} {7} \
-        :::: "$JOB_TSV" || true
+        :::: "$JOB_TSV"
+    PARALLEL_RC=$?
+    set -e
+    [ "$PARALLEL_RC" -ne 0 ] && FAILED_CASES+=("__parallel_exit_${PARALLEL_RC}__")
     # Collect failures from logs
     while IFS=$'\t' read -r NII CASE_OUT _ _ _ _ _; do
         CID=$(basename "$NII" .nii.gz | tr ' ()' '_-_' | tr -d "'\"")
-        grep -qE "^FAILED|^TIMEOUT|^SKIP" "$LOG_DIR/${CID}.log" 2>/dev/null && \
+        grep -qE "^(FAILED|TIMEOUT|SKIP|ERROR:)" "$LOG_DIR/${CID}.log" 2>/dev/null && \
             FAILED_CASES+=("$CID")
     done < "$JOB_TSV"
 else
@@ -195,20 +212,16 @@ else
     while IFS=$'\t' read -r NII CASE_OUT R C REG CLEAN ST; do
         # Wait for a free slot
         while [ ${#PIDS[@]} -ge "$MAX_PARALLEL" ]; do
+            DONE_PID=""
+            set +e
+            wait -n -p DONE_PID "${PIDS[@]}"
+            EXIT=$?
+            set -e
+            [ "$EXIT" -ne 0 ] && [ "$EXIT" -ne 127 ] && FAILED_CASES+=("${PID_TO_CASE[$DONE_PID]:-PID$DONE_PID}")
             NEW_PIDS=()
-            for i in "${!PIDS[@]}"; do
-                pid="${PIDS[$i]}"
-                if kill -0 "$pid" 2>/dev/null; then
-                    NEW_PIDS+=("$pid")
-                else
-                    wait "$pid" 2>/dev/null
-                    EXIT=$?
-                    [ $EXIT -ne 0 ] && [ $EXIT -ne 127 ] && FAILED_CASES+=("${PID_TO_CASE[$pid]:-PID$pid}")
-                    unset "PID_TO_CASE[$pid]"
-                fi
-            done
-            if [ ${#NEW_PIDS[@]} -gt 0 ]; then PIDS=("${NEW_PIDS[@]}"); else PIDS=(); fi
-            [ ${#PIDS[@]} -ge "$MAX_PARALLEL" ] && sleep 5
+            for pid in "${PIDS[@]}"; do [ "$pid" != "$DONE_PID" ] && NEW_PIDS+=("$pid"); done
+            PIDS=("${NEW_PIDS[@]}")
+            [ -n "$DONE_PID" ] && unset "PID_TO_CASE[$DONE_PID]"
         done
 
         # Launch job
@@ -224,8 +237,7 @@ else
 
     # Wait for remaining
     for pid in "${PIDS[@]+${PIDS[@]}}"; do
-        wait "$pid" 2>/dev/null
-        EXIT=$?
+        set +e; wait "$pid" 2>/dev/null; EXIT=$?; set -e
         [ $EXIT -ne 0 ] && [ $EXIT -ne 127 ] && FAILED_CASES+=("${PID_TO_CASE[$pid]:-PID$pid}")
     done
 fi
@@ -253,9 +265,11 @@ for LOG in "$LOG_DIR"/*.log; do
     done < <(grep "^DONE " "$LOG" 2>/dev/null)
 done
 
-# Collect phenotype CSVs
-find "$OUTPUT_BASE" -name '*_vascularPhenotypes.csv' \
-    -exec cp {} "$SUMMARY_DIR/" \; 2>/dev/null || true
+# Collect phenotype CSVs (prefix with run dir to avoid run1/run2 overwrite)
+find "$OUTPUT_BASE" -path '*/run*/*_vascularPhenotypes.csv' -type f | while read -r csv; do
+    run_dir="$(basename "$(dirname "$csv")")"
+    cp "$csv" "$SUMMARY_DIR/${run_dir}_$(basename "$csv")" 2>/dev/null || true
+done
 CSV_COUNT=$(find "$SUMMARY_DIR" -maxdepth 1 -name '*_vascularPhenotypes.csv' | wc -l)
 echo ""
 echo "Phenotype CSVs collected: $CSV_COUNT -> $SUMMARY_DIR"
