@@ -107,11 +107,13 @@ if((NOT DEFINED VTK_DIR OR NOT DEFINED VTK_SOURCE_DIR) AND NOT ${CMAKE_PROJECT_N
       )
   endif()
 
-  # Enable VTK_ENABLE_KITS only if CMake >= 3.0 is used
+  # Kits mode bundles VTK modules into monolithic .so files. On GCC <15, the
+  # linker does not resolve transitive shared-library dependencies, so anything
+  # linking against a kit lib (e.g. libvtkOpenGL) fails with hundreds of
+  # "undefined reference to `vtk..." errors for symbols that live in another
+  # kit lib (e.g. libvtkCommon). Individual-module mode (kits OFF) generates
+  # correct per-module link commands that work on all tested GCC versions.
   set(VTK_ENABLE_KITS 0)
-  if(CMAKE_MAJOR_VERSION EQUAL 3)
-    set(VTK_ENABLE_KITS 1)
-  endif()
 
   set(${CMAKE_PROJECT_NAME}_${proj}_GIT_REPOSITORY "github.com/Slicer/VTK.git" CACHE STRING "Repository from which to get VTK" FORCE)
   set(${CMAKE_PROJECT_NAME}_${proj}_GIT_TAG "31dc6a08b8268133eb8bad83b7a65d70535673fa" CACHE STRING "VTK git tag to use" FORCE)   # slicer-2019-06-21
