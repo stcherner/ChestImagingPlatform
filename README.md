@@ -10,8 +10,9 @@ This is a fork of [acil-bwh/ChestImagingPlatform](https://github.com/acil-bwh/Ch
 with an automated superbuild system, reproducibility fixes, and a batch
 processing pipeline for vessel particle extraction. Dependency versions are
 pinned exactly (ITK 4.13.1, VTK 8.2.0, Teem e4746083, Boost 1.65.1) and
-two required mid-build patches (ExodusII, VNL) are applied automatically so
-the build succeeds on modern GCC without manual intervention.
+six required mid-build patches (ExodusII, vtklibxml2, vtkeigen, VTK octree,
+VNL, ITK spFactor) are applied automatically so the build succeeds on GCC 15+
+without manual intervention.
 
 
 What This Repo Adds
@@ -41,7 +42,7 @@ Install system dependencies:
 
 ```bash
 sudo apt-get install -y build-essential git python3 python3-venv \
-    libgl-dev libglu-dev libxt-dev
+    libgl-dev libglu1-mesa-dev libxt-dev
 ```
 
 
@@ -68,8 +69,9 @@ installs cmake 3.x via pip (cmake 4.x breaks the superbuild), and builds Teem
 bash build.sh [--build-dir /path/to/build] [--jobs 4]
 ```
 
-This runs three `make` passes, applying the ExodusII and VNL patches between
-passes 1 and 2. The full build takes 60-120 minutes depending on hardware.
+This runs three `make` passes, automatically applying all six patches at the
+appropriate pass boundaries. The full build takes 60-120 minutes depending on
+hardware.
 The default build directory is `$HOME/cip_build`.
 
 **Step 3 — Activate the environment:**
