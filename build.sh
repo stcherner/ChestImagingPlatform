@@ -179,6 +179,22 @@ if [ "$PASS1_EXIT" -ne 0 ]; then
         PASS1_KNOWN=1
     fi
 
+    # ── VTK octree_node.cxx typo patch (GCC 15 -Wtemplate-body) ──────────────
+    # octree_node.cxx line 200 has a typo: _M_chilren (missing 'd').
+    # GCC 14 and earlier silently accepted the misspelling inside a template
+    # body; GCC 15 makes -Wtemplate-body a hard error when a member lookup
+    # fails unconditionally in the template definition.
+    OCTREE_FILE="$CIP_BUILD_DIR/VTKv8/Utilities/octree/octree_node.cxx"
+    if [ -f "$OCTREE_FILE" ]; then
+        echo ""
+        echo "=== Applying VTK octree_node.cxx typo patch (GCC 15 -Wtemplate-body) ==="
+        apply_patch_sed "$OCTREE_FILE" \
+            "this->_M_chilren[child];" \
+            "this->_M_children[child];" \
+            "octree_node.cxx: fix _M_chilren typo → _M_children"
+        PASS1_KNOWN=1
+    fi
+
     if [ "$PASS1_KNOWN" -eq 0 ]; then
         echo "Pass 1 failed before VTK sources were downloaded — unrecognized error." >&2
         echo "Check $CIP_BUILD_DIR/build.log for details." >&2
