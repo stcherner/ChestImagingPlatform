@@ -113,35 +113,61 @@ apply_patch_sed() {
     fi
 }
 
-# ── Build pass 1: expect VTK ExodusII failure ─────────────────────────────────
+# ── Build pass 1: VTK source download + first compilation attempt ─────────────
+# Expected failures (applied in the error block below):
+#   GCC 10-14: ExodusII duplicate symbol in ex_open_par.c
+#   GCC 15+:   vtklibxml2/threads.c K&R pthread declarations conflict with
+#              system pthread.h (GCC 15 adopted C23 where foo() = foo(void))
+# Both patches are applied proactively after pass 1 so pass 2 clears both.
 echo ""
-echo "=== Build pass 1 (expect ExodusII failure) ==="
+echo "=== Build pass 1 (expect ExodusII / vtklibxml2 failure) ==="
 set +e
 make -j"$BUILD_JOBS" 2>&1 | tee -a "$CIP_BUILD_DIR/build.log"
 PASS1_EXIT=${PIPESTATUS[0]}
 set -e
 
-# Check for expected failure or success
-if [ "$PASS1_EXIT" -eq 0 ]; then
-    echo "Pass 1 succeeded (no ExodusII failure needed — may already be patched)"
-else
-    if ! grep -q "multiple definition.*exodus_unused_symbol_dummy" "$CIP_BUILD_DIR/build.log" 2>/dev/null && \
-       ! grep -q "exodus_unused_symbol_dummy_1" "$CIP_BUILD_DIR/build.log" 2>/dev/null; then
-        echo "Pass 1 failed but NOT with the expected ExodusII error." >&2
+if [ "$PASS1_EXIT" -ne 0 ]; then
+    PASS1_KNOWN=0
+
+    # ── vtklibxml2 threads.c patch (GCC 15+ C23 compat) ──────────────────────
+    LIBXML_FILE="$CIP_BUILD_DIR/VTKv8/ThirdParty/libxml2/vtklibxml2/threads.c"
+    if [ -f "$LIBXML_FILE" ]; then
+        echo ""
+        echo "=== Applying vtklibxml2 patch (GCC 15+ C23 compat) ==="
+        if grep -q '__GNUC__ < 15' "$LIBXML_FILE" 2>/dev/null; then
+            echo "  [already patched] vtklibxml2 K&R pthread declarations"
+        elif grep -q 'pthread_mutex_init ()' "$LIBXML_FILE" 2>/dev/null; then
+            # Narrow the GCC version guard so empty-arg K&R declarations are
+            # skipped on GCC 15+ where () now means (void) under C23 default.
+            sed -i \
+                's@#if (__GNUC__ == 3 && __GNUC_MINOR__ >= 3) || (__GNUC__ > 3)@#if ((__GNUC__ == 3 \&\& __GNUC_MINOR__ >= 3) || __GNUC__ > 3) \&\& __GNUC__ < 15@' \
+                "$LIBXML_FILE"
+            echo "  [patched] vtklibxml2 K&R pthread declarations"
+        else
+            echo "  [WARNING] vtklibxml2 threads.c does not match expected pattern" >&2
+        fi
+        PASS1_KNOWN=1
+    fi
+
+    # ── ExodusII patch (GCC 10+: duplicate symbol) ────────────────────────────
+    EXODUS_FILE="$CIP_BUILD_DIR/VTKv8/ThirdParty/exodusII/vtkexodusII/src/ex_open_par.c"
+    if [ -f "$EXODUS_FILE" ]; then
+        echo ""
+        echo "=== Applying ExodusII patch ==="
+        apply_patch_sed "$EXODUS_FILE" \
+            "exodus_unused_symbol_dummy_1 =" \
+            "exodus_unused_symbol_dummy_2 =" \
+            "ExodusII duplicate symbol rename"
+        PASS1_KNOWN=1
+    fi
+
+    if [ "$PASS1_KNOWN" -eq 0 ]; then
+        echo "Pass 1 failed before VTK sources were downloaded — unrecognized error." >&2
         echo "Check $CIP_BUILD_DIR/build.log for details." >&2
         exit 1
     fi
-    echo ""
-    echo "=== Applying ExodusII patch ==="
-    EXODUS_FILE="$CIP_BUILD_DIR/VTKv8/ThirdParty/exodusII/vtkexodusII/src/ex_open_par.c"
-    if [ ! -f "$EXODUS_FILE" ]; then
-        echo "ERROR: $EXODUS_FILE not found — VTK sources may not have been downloaded yet" >&2
-        exit 1
-    fi
-    apply_patch_sed "$EXODUS_FILE" \
-        "exodus_unused_symbol_dummy_1 =" \
-        "exodus_unused_symbol_dummy_2 =" \
-        "ExodusII duplicate symbol rename"
+else
+    echo "Pass 1 succeeded (VTK already built or no patches needed)"
 fi
 
 # ── Build pass 2: expect ITK VNL failure ──────────────────────────────────────
