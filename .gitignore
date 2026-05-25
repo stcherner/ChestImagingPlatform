@@ -27,4 +27,11 @@ cip_python/utils/gco_python/setup.py
 
 */Testing/Temporary/*
 vessel_pipeline/teem_src/
-vessel_pipeline/teem_src/
+vessel_pipeline/teem_build/
+vessel_pipeline/teem_install/
+vessel_pipeline/venv/
+__pycache__/
+*.pyo
+*-build/
+build/
+cmake-build-*/
