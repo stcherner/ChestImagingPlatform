@@ -158,8 +158,14 @@ if((NOT DEFINED VTK_DIR OR NOT DEFINED VTK_SOURCE_DIR) AND NOT ${CMAKE_PROJECT_N
       -DVTK_ENABLE_KITS:BOOL=${VTK_ENABLE_KITS}
       -DVTK_RENDERING_BACKEND:STRING=${CIP_VTK_RENDERING_BACKEND}
       -DModule_vtkTestingRendering:BOOL=ON
-      -DModule_vtkInfovisBoostGraphAlgorithms:BOOL=${USE_BOOST}   # Build this module only if Boost is active
+      # vtkInfovisBoostGraphAlgorithms requires find_package(Boost) inside VTK's
+      # own cmake configure. cmake 3.30+ (CMP0144/CMP0167) ignores BOOST_ROOT and
+      # removed the legacy FindBoost module, so this find always fails on modern
+      # cmake. The vessel pipeline does not use VTK Boost graph algorithms, so
+      # disable this module unconditionally for cmake compatibility.
+      -DModule_vtkInfovisBoostGraphAlgorithms:BOOL=OFF
       -DBOOST_ROOT:PATH=${BOOST_ROOT}
+      -DBoost_INCLUDE_DIR:PATH=${BOOST_ROOT}/include
       -DBoost_NO_BOOST_CMAKE:BOOL=ON    # Important in order not to search for System Boost in Unix!
 #      -DQT_QMAKE_EXECUTABLE:PATH=${CIP_PYTHON_INSTALL_DIR}/bin/qmake
 #      -DQT_RCC_EXECUTABLE:PATH=${CIP_PYTHON_INSTALL_DIR}/bin/rcc
