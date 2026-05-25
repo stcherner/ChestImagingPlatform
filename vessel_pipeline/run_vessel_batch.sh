@@ -65,11 +65,22 @@ if [ "$AVAIL_MB" -lt "$NEEDED_MB" ]; then
 fi
 
 # ── Scan discovery + collision check ─────────────────────────────────────────
-FIND_OUT=$(find "$DATA_DIR" -name "*.nii.gz" -type f | sort) || { echo "ERROR: failed to scan data dir: $DATA_DIR" >&2; exit 1; }
-if [ -z "$FIND_OUT" ]; then
-    echo "ERROR: no .nii.gz files found in $DATA_DIR" >&2; exit 1
+# Accept .nii.gz files and DICOM patient directories (immediate subdirs of
+# DATA_DIR that contain .dcm files at any depth up to 3 levels).
+mapfile -t _NII < <(find "$DATA_DIR" -maxdepth 3 -name "*.nii.gz" -type f | sort)
+mapfile -t _DCM < <(
+    for _d in "$DATA_DIR"/*/; do
+        [ -d "$_d" ] || continue
+        find "$_d" -maxdepth 3 -name "*.dcm" -type f -print -quit 2>/dev/null \
+            | grep -q . && echo "${_d%/}"
+    done | sort
+)
+ALL_NII_FILES=()
+[ ${#_NII[@]} -gt 0 ] && ALL_NII_FILES+=("${_NII[@]}")
+[ ${#_DCM[@]} -gt 0 ] && ALL_NII_FILES+=("${_DCM[@]}")
+if [ ${#ALL_NII_FILES[@]} -eq 0 ]; then
+    echo "ERROR: no .nii.gz files or DICOM patient directories found in $DATA_DIR" >&2; exit 1
 fi
-mapfile -t ALL_NII_FILES <<< "$FIND_OUT"
 
 # Collision detection
 declare -A CASE_ID_MAP

@@ -12,6 +12,7 @@ if [ -z "${CIP_PATH:-}" ]; then
 fi
 
 PIPELINE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/Scripts/cip_compute_vessel_particles.py"
+DICOM_CONVERTER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/dicom_to_nifti.py"
 # CIP_BUILD_DIR is exported by env.sh; fall back to default if called standalone without env.sh
 : "${CIP_BUILD_DIR:=$HOME/cip_build}"
 PHENO_SCRIPT="$CIP_BUILD_DIR/CIP-build/cip_python/phenotypes/vasculature_phenotypes.py"
@@ -55,7 +56,8 @@ for bin in GenerateMedianFilteredImage GeneratePartialLungLabelMap \
     command -v "$bin" > /dev/null 2>&1 || MISSING+=("binary not found: $bin")
 done
 
-[ -f "$PIPELINE" ] || MISSING+=("pipeline script not found: $PIPELINE")
+[ -f "$PIPELINE" ]          || MISSING+=("pipeline script not found: $PIPELINE")
+[ -f "$DICOM_CONVERTER" ]  || MISSING+=("DICOM converter not found: $DICOM_CONVERTER")
 
 if [ -f "$PIPELINE" ]; then
     python "$PIPELINE" --help 2>&1 | grep -q -- '--perm' || MISSING+=(
@@ -107,6 +109,17 @@ cleanup_run_probe_files() {
 
 # ── Preprocessing (idempotent, atomic writes) ─────────────────────────────────
 preprocess() {
+    # Step 0: DICOM directory → NIfTI
+    if [ -d "$NII_PATH" ]; then
+        if [ ! -s "$CASEDIR/CT.nii.gz" ]; then
+            echo "[$(date '+%H:%M:%S')] $CASE_ID preprocessing: DICOM → NIfTI"
+            python "$DICOM_CONVERTER" "$NII_PATH" --out "$CASEDIR/CT.nii.gz"
+        else
+            echo "[$(date '+%H:%M:%S')] $CASE_ID CT.nii.gz exists, skipping DICOM conversion"
+        fi
+        NII_PATH="$CASEDIR/CT.nii.gz"
+    fi
+
     # Step 1: NIfTI -> NRRD (cast to int16)
     if [ ! -s "$CASEDIR/CT.nrrd" ]; then
         echo "[$(date '+%H:%M:%S')] $CASE_ID preprocessing: NIfTI -> NRRD"
