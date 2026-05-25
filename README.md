@@ -205,11 +205,17 @@ Pinned Dependencies
 | Python | 3.11+ (tested on 3.14.4) |
 | GCC | 13+ (tested on 15.2.0) |
 
-Two patches are applied automatically by `build.sh`:
+Four patches are applied automatically by `build.sh`:
 
 1. **ExodusII** (`ex_open_par.c`) — renames `exodus_unused_symbol_dummy_1`
    to avoid a duplicate-symbol link error under GCC 10+.
-2. **VNL** (`vcl_compiler.h`) — adds a `# elif (__GNUC__>=9)` branch to
+2. **vtklibxml2** (`threads.c`) — narrows the `__GNUC__` version guard to
+   exclude GCC 15+, where C23 changed `foo()` to mean `foo(void)`,
+   causing K&R-style empty-argument `extern` declarations to conflict
+   with real pthread signatures.
+3. **vtkeigen** (`Transpositions.h`) — removes a spurious `.derived()`
+   call that GCC 15 rejects as a hard error under `-Wtemplate-body`.
+4. **VNL** (`vcl_compiler.h`) — adds a `# elif (__GNUC__>=9)` branch to
    unblock the GCC version check that hard-errors on GCC 9+.
 
 
