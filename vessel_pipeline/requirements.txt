@@ -10,3 +10,5 @@ matplotlib
 networkx
 cython
 h5py
+pydicom
+future
