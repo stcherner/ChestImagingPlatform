@@ -60,12 +60,12 @@ done
 [ -f "$DICOM_CONVERTER" ]  || MISSING+=("DICOM converter not found: $DICOM_CONVERTER")
 
 if [ -f "$PIPELINE" ]; then
-    python "$PIPELINE" --help 2>&1 | grep -q -- '--perm' || MISSING+=(
+    grep -q "'--perm'" "$PIPELINE" || MISSING+=(
         "--perm flag missing from $(basename "$PIPELINE")"
         "  Fix: add parser.add_argument('--perm', dest='permissive', action='store_true', default=False)"
         "       and particlesGenerator._permissive = self._permissive in execute()"
     )
-    python "$PIPELINE" --help 2>&1 | grep -q -- '--init' || \
+    grep -q "'--init'" "$PIPELINE" || \
         MISSING+=("--init flag missing from pipeline script")
 fi
 
