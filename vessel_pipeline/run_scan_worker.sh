@@ -49,32 +49,6 @@ case "$CLEANUP" in
     *) echo "ERROR: --cleanup must be none|light|all, got: $CLEANUP" >&2; exit 1 ;;
 esac
 
-# ── Binary pre-check ──────────────────────────────────────────────────────────
-MISSING=()
-for bin in GenerateMedianFilteredImage GeneratePartialLungLabelMap \
-           ReadParticlesWriteConnectedParticles; do
-    command -v "$bin" > /dev/null 2>&1 || MISSING+=("binary not found: $bin")
-done
-
-[ -f "$PIPELINE" ]          || MISSING+=("pipeline script not found: $PIPELINE")
-[ -f "$DICOM_CONVERTER" ]  || MISSING+=("DICOM converter not found: $DICOM_CONVERTER")
-
-if [ -f "$PIPELINE" ]; then
-    grep -q "'--perm'" "$PIPELINE" || MISSING+=(
-        "--perm flag missing from $(basename "$PIPELINE")"
-        "  Fix: add parser.add_argument('--perm', dest='permissive', action='store_true', default=False)"
-        "       and particlesGenerator._permissive = self._permissive in execute()"
-    )
-    grep -q "'--init'" "$PIPELINE" || \
-        MISSING+=("--init flag missing from pipeline script")
-fi
-
-if [ ${#MISSING[@]} -gt 0 ]; then
-    echo "ERROR: pre-check failed:" >&2
-    printf '  %s\n' "${MISSING[@]}" >&2
-    exit 1
-fi
-
 # ── CASE_ID and directory setup ───────────────────────────────────────────────
 CASE_ID=$(basename "$NII_PATH" .nii.gz | tr ' ()' '_-_' | tr -d "'\"")
 # OUTPUT_DIR already includes CASE_ID (set by orchestrator as $OUTPUT_BASE/$CID
