@@ -1,6 +1,7 @@
 # Ignore hidden files and folders
 .*
 !/.gitignore
+!/.gitattributes
 
 
 CMakeCache.txt
