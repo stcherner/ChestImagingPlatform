@@ -337,6 +337,22 @@ make -C "$ITKTOOLS_BUILD" pxdistancetransform -j"$BUILD_JOBS" 2>&1 | tee -a "$CI
 
 echo ""
 echo "=== ITK-tools build complete ==="
+
+# ── Python compatibility patches (post-build) ─────────────────────────────────
+echo ""
+echo "=== Applying Python compatibility patches ==="
+
+CLUSTER_PY="$CIP_BUILD_DIR/CIP-build/cip_python/utils/cluster_particles.py"
+if [ -f "$CLUSTER_PY" ]; then
+    apply_patch_sed "$CLUSTER_PY" \
+        'from sklearn.datasets.samples_generator import make_blobs' \
+        'from sklearn.datasets import make_blobs' \
+        "sklearn samples_generator → sklearn.datasets (removed in sklearn 1.0)"
+else
+    echo "  [skip] cluster_particles.py not found (cip_python may not have built)"
+fi
+
+echo "=== Python patches complete ==="
 echo ""
 echo "=================================================="
 echo "  Full build finished. Activate environment with:"
