@@ -13,6 +13,7 @@ fi
 
 PIPELINE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/Scripts/cip_compute_vessel_particles.py"
 DICOM_CONVERTER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/dicom_to_nifti.py"
+CONNECTED_PY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/connected_particles.py"
 # CIP_BUILD_DIR is exported by env.sh; fall back to default if called standalone without env.sh
 : "${CIP_BUILD_DIR:=$HOME/cip_build}"
 PHENO_SCRIPT="$CIP_BUILD_DIR/CIP-build/cip_python/phenotypes/vasculature_phenotypes.py"
@@ -203,13 +204,13 @@ for RUN_NUM in $(seq 1 "$RUNS"); do
     # 3. Connected particles
     echo "[$(date '+%H:%M:%S')] $CASE_ID run$RUN_NUM: connected particles"
     set +e
-    ReadParticlesWriteConnectedParticles \
-        -v "$PARTICLE_VTK" \
+    python "$CONNECTED_PY" \
+        -i "$PARTICLE_VTK" \
         -o "$CONNECTED_VTK" 2>&1 | tail -2
     CONNECTED_EXIT=${PIPESTATUS[0]}
     set -e
     if [ $CONNECTED_EXIT -ne 0 ] || [ ! -f "$CONNECTED_VTK" ]; then
-        echo "FAILED $CASE_ID run$RUN_NUM — ReadParticlesWriteConnectedParticles failed"
+        echo "FAILED $CASE_ID run$RUN_NUM — connected_particles.py failed"
         cleanup_run_probe_files
         RUN_FAILED=1; continue
     fi

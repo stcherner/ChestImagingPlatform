@@ -161,8 +161,9 @@ if((NOT DEFINED VTK_DIR OR NOT DEFINED VTK_SOURCE_DIR) AND NOT ${CMAKE_PROJECT_N
       # vtkInfovisBoostGraphAlgorithms requires find_package(Boost) inside VTK's
       # own cmake configure. cmake 3.30+ (CMP0144/CMP0167) ignores BOOST_ROOT and
       # removed the legacy FindBoost module, so this find always fails on modern
-      # cmake. The vessel pipeline does not use VTK Boost graph algorithms, so
-      # disable this module unconditionally for cmake compatibility.
+      # cmake. Disabling this module means CIP_USE_BOOST=OFF and the C++ binary
+      # ReadParticlesWriteConnectedParticles will NOT be built — use
+      # vessel_pipeline/connected_particles.py instead (run_scan_worker.sh does this).
       -DModule_vtkInfovisBoostGraphAlgorithms:BOOL=OFF
       -DBOOST_ROOT:PATH=${BOOST_ROOT}
       -DBoost_INCLUDE_DIR:PATH=${BOOST_ROOT}/include
