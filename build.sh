@@ -90,6 +90,7 @@ if [ ! -f "$CIP_BUILD_DIR/CMakeCache.txt" ]; then
         -DCMAKE_BUILD_TYPE=Release \
         -DCIP_SUPERBUILD=ON \
         -DCIP_USE_QT=OFF \
+        -DCIP_USE_BOOST=ON \
         -DBUILD_TESTING=OFF \
         -DCIP_VTK_RENDERING_BACKEND=OpenGL2 \
         -DUSE_CYTHON=OFF \
@@ -213,11 +214,13 @@ fi
 # directly so Pass 2 compiles and links with default (visible) symbols.
 if [ -d "$CIP_BUILD_DIR/VTKv8-build" ]; then
     echo ""
-    echo "=== Configuring VTK with proper symbol visibility ==="
+    echo "=== Configuring VTK with proper symbol visibility and Boost graph modules ==="
     cd "$CIP_BUILD_DIR/VTKv8-build"
     "$CMAKE" . \
         -DCMAKE_CXX_VISIBILITY_PRESET=default \
-        -DCMAKE_C_VISIBILITY_PRESET=default
+        -DCMAKE_C_VISIBILITY_PRESET=default \
+        -DModule_vtkInfovisBoost=ON \
+        -DModule_vtkInfovisBoostGraphAlgorithms=ON
     cd "$CIP_BUILD_DIR"
 fi
 

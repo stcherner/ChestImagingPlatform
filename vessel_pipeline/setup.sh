@@ -85,7 +85,7 @@ export CIP_BUILD_DIR
 export CIP_PATH="$CIP_BUILD_DIR/CIP-build/bin"
 export TEEM_PATH="$CIP_BUILD_DIR/teem-build/bin"
 export ITKTOOLS_PATH="$CIP_BUILD_DIR/itktools-build/bin"
-export PATH="$CIP_PATH:$TEEM_PATH:$SCRIPT_DIR/teem_install/bin:$PATH"
+export PATH="$CIP_PATH:$TEEM_PATH:$ITKTOOLS_PATH:$SCRIPT_DIR/teem_install/bin:$PATH"
 export PYTHONPATH="$CIP_BUILD_DIR/CIP-build${PYTHONPATH:+:$PYTHONPATH}"
 source "$SCRIPT_DIR/venv/bin/activate"
 ENVEOF
