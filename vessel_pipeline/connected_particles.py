@@ -17,6 +17,7 @@ import argparse
 import numpy as np
 import networkx as nx
 import vtk
+from scipy.spatial import cKDTree
 
 
 _ANGLE_SIGMA = 1.0  # from CIP: edgeWeightAngleSigma
@@ -80,13 +81,10 @@ def connected_particles(in_vtk: str, out_vtk: str,
     G = nx.Graph()
     G.add_nodes_from(range(n))
 
-    for i in range(n):
-        for j in range(i + 1, n):
-            dist = float(np.linalg.norm(pts[i] - pts[j]))
-            if dist > distance_threshold:
-                continue
-            w = _edge_weight(pts[i], pts[j], hvecs[i], hvecs[j])
-            G.add_edge(i, j, weight=w)
+    tree = cKDTree(pts)
+    for i, j in tree.query_pairs(r=distance_threshold):
+        w = _edge_weight(pts[i], pts[j], hvecs[i], hvecs[j])
+        G.add_edge(i, j, weight=w)
 
     print(f"Graph edges: {G.number_of_edges()}")
     print("Computing minimum spanning tree (Kruskal)...")
