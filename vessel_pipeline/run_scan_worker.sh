@@ -168,14 +168,14 @@ for RUN_NUM in $(seq 1 "$RUNS"); do
         RUN_FAILED=1; continue
     fi
 
-    # 2. Vessel extraction (90-min timeout)
+    # 2. Vessel extraction (8-hour timeout)
     # Production default is 0.5 (argparse + constructor). Calibration session tested
     # 0.58 for research comparison. 0.38 was an earlier experimental value.
     echo "[$(date '+%H:%M:%S')] $CASE_ID run$RUN_NUM: vessel extraction"
     set +e  # capture exit code manually; pipefail would exit before we can read PIPESTATUS
     ITK_GLOBAL_DEFAULT_NUMBER_OF_THREADS=$CORES \
     OMP_NUM_THREADS=$CORES \
-    timeout 5400 python "$PIPELINE" \
+    timeout 28800 python "$PIPELINE" \
         -i  "$CASEDIR/CT.nrrd" \
         -l  "$CASEDIR/partialLungLabelMap.nrrd" \
         --tmpDir "$TMPDIR_SHARED" \
