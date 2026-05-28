@@ -106,8 +106,8 @@ class VesselParticlesPipeline:
                 print (tmpCommandCT)
                 print (tmpCommandPL)
                 
-                subprocess.call(tmpCommandCT,shell=True)
-                subprocess.call(tmpCommandPL,shell=True)
+                subprocess.check_call(tmpCommandCT,shell=True)
+                subprocess.check_call(tmpCommandPL,shell=True)
                 ct_file_name = ct_file_name_crop
                 pl_file_name = pl_file_name_crop
             
@@ -123,11 +123,11 @@ class VesselParticlesPipeline:
                 if self._resampling_method=='Linear':
                     tmpCommandCT = tmpCommandUnuResampling % {'in':ct_file_name,'out':ct_file_name_resample,'kernel':"tent",'f1':spacing[0]/self._voxel_size,'f2':spacing[1]/self._voxel_size,'f3':spacing[2]/self._voxel_size}
                     print (tmpCommandCT)
-                    subprocess.call(tmpCommandCT,shell=True)
+                    subprocess.check_call(tmpCommandCT,shell=True)
                 elif self._resampling_method=='Cubic':
                     tmpCommandCT = tmpCommandUnuResampling % {'in':ct_file_name,'out':ct_file_name_resample,'kernel':"cubic:0,0.5",'f1':spacing[0]/self._voxel_size,'f2':spacing[1]/self._voxel_size,'f3':spacing[2]/self._voxel_size}
                     print (tmpCommandCT)
-                    subprocess.call(tmpCommandCT,shell=True)
+                    subprocess.check_call(tmpCommandCT,shell=True)
                 elif self._resampling_method=='Registration':
                     ct_image = sitk.ReadImage(ct_file_name)
                     interpolator = InterpolateVolume(self._voxel_size)
@@ -136,7 +136,7 @@ class VesselParticlesPipeline:
                     #Now Fix x,y
                     tmpCommandCT = tmpCommandUnuResampling % {'in':ct_file_name_resample,'out':ct_file_name_resample,'kernel':"tent",'f1':spacing[0]/self._voxel_size,'f2':spacing[1]/self._voxel_size,'f3':1.0}
                     print (tmpCommandCT)
-                    subprocess.call(tmpCommandCT,shell=True)
+                    subprocess.check_call(tmpCommandCT,shell=True)
                 elif self._resampling_method=='Hybrid':
                     print ("Hybrid resampling approach...")
                     ct_image = sitk.ReadImage(ct_file_name)
@@ -146,11 +146,11 @@ class VesselParticlesPipeline:
                     #Now cubic for x,y and z
                     tmpCommandCT = tmpCommandUnuResampling % {'in':ct_file_name_resample,'out':ct_file_name_resample,'kernel':"cubic:0,0.5",'f1':spacing[0]/self._voxel_size,'f2':spacing[1]/self._voxel_size,'f3':2.0}
                     print (tmpCommandCT)
-                    subprocess.call(tmpCommandCT,shell=True)
+                    subprocess.check_call(tmpCommandCT,shell=True)
 
                 tmpCommandPL = tmpCommandUnuResampling % {'in':pl_file_name,'out':pl_file_name_resample,'kernel':"cheap",'f1':spacing[0]/self._voxel_size,'f2':spacing[1]/self._voxel_size,'f3':spacing[2]/self._voxel_size}
                 print (tmpCommandPL)
-                subprocess.call(tmpCommandPL,shell=True)
+                subprocess.check_call(tmpCommandPL,shell=True)
                 
                 ct_file_name = ct_file_name_resample
                 pl_file_name = pl_file_name_resample
@@ -160,8 +160,7 @@ class VesselParticlesPipeline:
             #Lower camel case region tag
             rtag = ii[0].lower()+ii[1:]
             tmpDir = os.path.join(self._tmp_dir,rtag)
-            if os.path.exists(tmpDir) == False:
-                os.mkdir(tmpDir)
+            os.makedirs(tmpDir, exist_ok=True)
             
             # Define FileNames that will be used
             pl_file_nameRegion= os.path.join(tmpDir,self._case_id + "_" + rtag + "_partialLungLabelMap.nrrd")
@@ -178,30 +177,30 @@ class VesselParticlesPipeline:
                 tmpCommand = tmpCommand % {'region':ii,'ct-in':ct_file_name,'lm-in':pl_file_name,'ct-out':ct_file_nameRegion,'lm-out':pl_file_nameRegion}
                 tmpCommand = os.path.join(self._path['CIP_PATH'],tmpCommand)
                 print (tmpCommand)
-                subprocess.call( tmpCommand, shell=True )
+                subprocess.check_call( tmpCommand, shell=True )
                 
                 #Extract Lung Region + Distance map to peel lung
                 tmpCommand = "ExtractChestLabelMap -r %(region)s -i %(lm-in)s -o %(lm-out)s"
                 tmpCommand = tmpCommand % {'region':ii,'lm-in':pl_file_nameRegion,'lm-out':pl_file_nameRegion}
                 tmpCommand = os.path.join(self._path['CIP_PATH'],tmpCommand)
                 print (tmpCommand)
-                subprocess.call( tmpCommand, shell=True )
+                subprocess.check_call( tmpCommand, shell=True )
                 
                 tmpCommand = "unu 2op gt %(lm-in)s 0.5 -o %(lm-out)s"
                 tmpCommand = tmpCommand % {'lm-in':pl_file_nameRegion,'lm-out':pl_file_nameRegion}
                 print (tmpCommand)
-                subprocess.call( tmpCommand, shell=True )
+                subprocess.check_call( tmpCommand, shell=True )
                 
                 tmpCommand = "ComputeDistanceMap -l %(lm-in)s -d %(distance-map)s -s 1 -p -m Maurer"
                 tmpCommand = tmpCommand % {'lm-in':pl_file_nameRegion,'distance-map':distanceMapFileNameRegion}
                 tmpCommand = os.path.join(self._path['CIP_PATH'],tmpCommand)
                 print (tmpCommand)
-                subprocess.call( tmpCommand, shell=True )
+                subprocess.check_call( tmpCommand, shell=True )
 
                 tmpCommand = "unu 2op gt %(distance-map)s %(distance)f | unu convert -t short -o %(lm-out)s"
                 tmpCommand = tmpCommand % {'distance-map':distanceMapFileNameRegion,'distance':self._distance_from_wall,'lm-out':pl_file_nameRegion}
                 print (tmpCommand)
-                subprocess.call( tmpCommand, shell=True )
+                subprocess.check_call( tmpCommand, shell=True )
                 
                 # Compute Frangi
                 if self._init_method == 'Frangi':
@@ -210,7 +209,7 @@ class VesselParticlesPipeline:
                         tmpCommand = tmpCommand % {'in':ct_file_nameRegion,'out':featureMapFileNameRegion,'minscale':self._min_scale,'maxscale':self._max_scale}
                         tmpCommand  = os.path.join(self._path['CIP_PATH'],tmpCommand)
                         print (tmpCommand)
-                        subprocess.call( tmpCommand, shell=True )
+                        subprocess.check_call( tmpCommand, shell=True )
                     else:
                         print("Skipping ComputeFeatureStrength — featureMap already exists: " + featureMapFileNameRegion)
 
@@ -218,14 +217,14 @@ class VesselParticlesPipeline:
                     tmpCommand = "unu 2op x %(feat)s %(mask)s -t float | unu heq -b 10000 -a 0.96 -s 5 | unu 2op gt - %(vesselness_th)f  | unu convert -t short -o %(out)s"
                     tmpCommand = tmpCommand % {'feat':featureMapFileNameRegion,'mask':pl_file_nameRegion,'vesselness_th':self._vesselness_th,'out':maskFileNameRegion}
                     print (tmpCommand)
-                    subprocess.call( tmpCommand , shell=True)
+                    subprocess.check_call( tmpCommand , shell=True)
                 elif self._init_method == 'StrainEnergy':
                     if not os.path.exists(featureMapFileNameRegion):
                         tmpCommand = "ComputeFeatureStrength -i %(in)s -m StrainEnergy -f RidgeLine --std %(minscale)f,%(maxscale)f,7 --ssm 1 --alpha 0.2 --beta 0.1 --kappa 0.5 --nu 0.1 -o %(out)s"
                         tmpCommand = tmpCommand % {'in':ct_file_nameRegion,'out':featureMapFileNameRegion,'minscale':self._min_scale,'maxscale':self._max_scale}
                         tmpCommand  = os.path.join(self._path['CIP_PATH'],tmpCommand)
                         print (tmpCommand)
-                        subprocess.call( tmpCommand, shell=True )
+                        subprocess.check_call( tmpCommand, shell=True )
                     else:
                         print("Skipping ComputeFeatureStrength — featureMap already exists: " + featureMapFileNameRegion)
 
@@ -233,12 +232,12 @@ class VesselParticlesPipeline:
                     tmpCommand = "unu 2op x %(feat)s %(mask)s -t float | unu heq -b 10000 -a 0.95 -s 5 | unu 2op gt - %(vesselness_th)f  | unu convert -t short -o %(out)s"
                     tmpCommand = tmpCommand % {'feat':featureMapFileNameRegion,'mask':pl_file_nameRegion,'vesselness_th':self._vesselness_th,'out':maskFileNameRegion}
                     print (tmpCommand)
-                    subprocess.call( tmpCommand , shell=True)
+                    subprocess.check_call( tmpCommand , shell=True)
                 elif self._init_method == 'Threshold':
                     tmpCommand = "unu 2op gt %(in)s %(intensity_th)f | unu 2op x - %(mask)s -o %(out)s"
                     tmpCommand = tmpCommand % {'in':ct_file_nameRegion,'mask':pl_file_nameRegion,'intensity_th':self._intensity_th,'out':maskFileNameRegion}
                     print (tmpCommand)
-                    subprocess.call( tmpCommand , shell=True)
+                    subprocess.check_call( tmpCommand , shell=True)
                 elif self._init_method == 'VesselMask':
                     # vessel_file=os.path.join(self._tmp_dir,self._vessel_mask)
                     vessel_file=self._vessel_mask
@@ -246,19 +245,19 @@ class VesselParticlesPipeline:
                     tmpCommandUnuResampling = "unu resample -k %(kernel)s -s x%(f1)f x%(f2)f x%(f3)f -i %(in)s -o %(out)s -c cell"
                     tmpCommandPL = tmpCommandUnuResampling % {'in':vessel_file,'out':vessel_file_resampled,'kernel':"cheap",'f1':spacing[0]/self._voxel_size,'f2':spacing[1]/self._voxel_size,'f3':spacing[2]/self._voxel_size}
                     print (tmpCommandPL)
-                    subprocess.call(tmpCommandPL,shell=True)
+                    subprocess.check_call(tmpCommandPL,shell=True)
                     tmpCommand = "CropLung --cipr %(region)s -m 0 -v 0 --ict %(mask-in)s --ilm %(lm-in)s --oct %(mask-out)s --olm %(lm-out)s"
                     tmpCommand = tmpCommand % {'region': ii, 'mask-in': vessel_file_resampled, 'lm-in': pl_file_name,
                                                'mask-out': maskFileNameRegion, 'lm-out': pl_file_nameRegion}
                     tmpCommand = os.path.join(self._path['CIP_PATH'], tmpCommand)
                     # print tmpCommand
-                    subprocess.call(tmpCommand, shell=True)
+                    subprocess.check_call(tmpCommand, shell=True)
                 
                 # Binary Thinning
                 tmpCommand = "GenerateBinaryThinning3D -i %(in)s -o %(out)s"
                 tmpCommand = tmpCommand % {'in':maskFileNameRegion,'out':maskFileNameRegion}
                 tmpCommand = os.path.join(self._path['CIP_PATH'],tmpCommand)
-                subprocess.call( tmpCommand, shell=True)
+                subprocess.check_call( tmpCommand, shell=True)
             
             # Vessel Particles For the Region
             if self._multires==False:

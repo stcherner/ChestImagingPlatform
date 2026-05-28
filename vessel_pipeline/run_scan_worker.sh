@@ -160,6 +160,9 @@ for RUN_NUM in $(seq 1 "$RUNS"); do
         continue
     fi
 
+    # 1a. Clean up stale probe files from any previous incomplete run
+    cleanup_run_probe_files
+
     # 1. Disk space check
     AVAIL_KB=$(df --output=avail "$CASEDIR" | tail -1 | tr -d ' ')
     if [ "$AVAIL_KB" -lt 6291456 ]; then
@@ -190,7 +193,7 @@ for RUN_NUM in $(seq 1 "$RUNS"); do
     set -e
 
     if   [ $EXIT_CODE -eq 124 ]; then
-        echo "TIMEOUT $CASE_ID run$RUN_NUM — exceeded 90 min"; cleanup_run_probe_files; RUN_FAILED=1; continue
+        echo "TIMEOUT $CASE_ID run$RUN_NUM — exceeded 8h"; cleanup_run_probe_files; RUN_FAILED=1; continue
     elif [ $EXIT_CODE -ne 0 ]; then
         echo "FAILED $CASE_ID run$RUN_NUM — pipeline exit $EXIT_CODE"; cleanup_run_probe_files; RUN_FAILED=1; continue
     fi
@@ -243,6 +246,7 @@ from cip_python.phenotypes.vasculature_phenotypes import VasculaturePhenotypes
 r = vtk.vtkPolyDataReader()
 r.SetFileName(os.environ['PHENO_IN']); r.Update()
 vp = VasculaturePhenotypes(chest_regions=['WildCard'], pairs=None)
+# spacing is 0.625 isotropic: enforced by -s 0.625 passed to cip_compute_vessel_particles.py
 result = vp.execute(r.GetOutput(), os.environ['PHENO_CID'],
                     spacing=np.array([0.625, 0.625, 0.625]))
 if isinstance(result, tuple):
@@ -270,8 +274,12 @@ PYEOF
     [ -f "$PNG_OUT" ] && ARTIFACTS+=("$PNG_OUT")
 
     for f in "$PARTICLE_VTK" "$CONNECTED_VTK"; do
-        [ -f "$f" ] || echo "WARNING $CASE_ID run$RUN_NUM — missing: $(basename "$f")"
+        if [ ! -f "$f" ]; then
+            echo "FAILED $CASE_ID run$RUN_NUM — missing artifact: $(basename "$f")"
+            RUN_FAILED=1
+        fi
     done
+    [ $RUN_FAILED -eq 1 ] && continue
 
     if [ -n "$STAGE_TO" ]; then
         DEST="$STAGE_TO/$CASE_ID/run${RUN_NUM}"
