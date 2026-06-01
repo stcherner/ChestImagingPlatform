@@ -12,3 +12,4 @@ cython
 h5py
 pydicom
 future
+setuptools
